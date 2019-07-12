@@ -1,7 +1,7 @@
-# eosinabox
+# EOS in a Box
 create private eosio blockchain fast and easy 
 
-# Overview
+## Overview
 0. This is for people who are comfortable with the linux command line and remote servers using ssh.
 1. start a small *controller* on the internet, example: AWS EC2 t2.nano server.
 2. start 5 servers for the blockchain with a minimum of 1 GB RAM and 8 GB HDD
@@ -11,7 +11,7 @@ create private eosio blockchain fast and easy
 4. The BP servers should have a port open just for peer to peer communication for the blockchain
 5. The 5th server will have 2 ports open, one for the blockchain communication and the other for web API requests.
 
-# Step by step instructions
+## Step by step instructions
 1. ssh to the controller server
 
 2. pick a name for the controller server and set a variable to it:
