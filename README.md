@@ -32,3 +32,6 @@ This was the output of running:
    run the app:
      $ DEBUG=dev:* npm start
 
+remote: GitHub found 2 vulnerabilities on eosinabox/eosinabox's default branch (1 critical, 1 low). To find out more, visit:
+remote:      https://github.com/eosinabox/eosinabox/security/dependabot
+
