@@ -1,0 +1,26 @@
+# this file should be copied to /etc/systemd/system
+# and activated with:
+#     sudo systemctl start eosinabox
+[Unit]
+Description=eosinabox, a webauthn easy onboarding wallet for friends and family fo the website owner
+#Requires=After=mysql.service       # Requires the mysql service to run first
+
+[Service]
+ExecStart=/usr/bin/node /home/ubuntu/dev/bin/www
+# Required on some systems
+#WorkingDirectory=/home/ubuntu/dev/
+Restart=always
+# Restart service after 10 seconds if node service crashes
+RestartSec=10
+# Output to syslog
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=eosinabox
+#User=<alternate user>
+#Group=<alternate group>
+#Environment=PARAM1=value1 PORT=1337
+Environment=DEBUG=dev:*
+
+[Install]
+WantedBy=multi-user.target
+
