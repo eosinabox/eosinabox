@@ -23,6 +23,8 @@ var eosEndpoint = [
 ];
 
 // curl http://eos.hyperion.eosrio.io/v1/chain/get_info 
+// curl http://eos.hyperion.eosrio.io/v1/chain/get_block -d '{"block_num_or_id": "120000000"}' | jq
+// need to save user's account name+permission+chain
 // make sure the chain id for main net is: aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906
 //
 /* GET users listing. */

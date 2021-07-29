@@ -51,6 +51,10 @@ remote:      https://github.com/eosinabox/eosinabox/security/dependabot
 * Warn website owner in README and on the front page of the site, and warn the user requesting an account with the help of the website owner
 * Warning should include: Don't put a large sum of money in tokens on this wallet, you might lose access forever.
 
+# To Do / To Research
+* pwa register schema handler
+* pwa other capabilities
+* https://github.com/greymass/eosio-signing-request
 
 # Plan (will be fine tuned as time progresses)
 
@@ -63,6 +67,7 @@ remote:      https://github.com/eosinabox/eosinabox/security/dependabot
 * check on server if valid attestation
 * perhaps if account exists, ask user if this account is managed by the site owner?
 * perhaps have a simple PIN so only friends of the site owner have access? PIN in a setup file on the server?
+* create jungle3 test accounts and play with their permissions and keys
 
 ## Week 3-4
 * allow the user to transfer EOS using the mini website as a wallet
@@ -91,3 +96,19 @@ remote:      https://github.com/eosinabox/eosinabox/security/dependabot
 * define recommended standard msig owners, perhaps with delays? some without delays to cancel unstaking and replace keys to help user save his account from attacker
 * continue implementing the features from the previous cycle
 
+---
+
+jungle3 testing playground, create account, use faucet, then use that as the website-owner who creates new accounts
+
+cleos -u https://jungle.eosn.io:443 system newaccount \
+--dont-broadcast \
+--buy-ram-bytes {howMuch?} \
+--stake-net "{howMuch?} EOS" \
+--stake-cpu "{howMuch?} EOS" \
+webauthn1111 webauthn2222 {whoWillBeTheManager?} EOS7fVpbiuSyctgBYa2YhYq79dnxZTx9rAPS4AD1EyNNqBxDbLSFj
+
+Fill in the parameters from the website owner's config file and prepare a ESR that the user can send out-of-band (perhaps on telegram) to the website owner to sign.
+
+# self-powerup
+cleos -u https://jungle.eosn.io:443 push action eosio powerup '[webauthn1111, webauthn1111, 1, 100000000, 100000000, "0.0010 EOS"]' -p webauthn1111
+cleos -u https://jungle.eosn.io:443 get account webauthn1111

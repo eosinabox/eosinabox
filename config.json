@@ -1,0 +1,13 @@
+{
+	"siteOwnerName": "Ami Heines",
+	"siteHeader": "Account creation and wallet for friends of Ami",
+	"sponsorAccount": {
+		"actor": "webauthn1111",
+		"permission": "active"
+	},
+	"amountOfRamToBuyInBytes": 3200,
+	"accountPayingForRam": "webauthn1111",
+	"howMuchToStakeForNet": "0.0100 EOS",
+	"howMuchToStakeForCpu": "0.0100 EOS",
+	"ShouldTransferStakedEos": 0
+}
