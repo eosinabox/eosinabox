@@ -29,11 +29,17 @@ router.post('/isAvailable/:accountname', function(req, res, next) {
   .post(eosEndpoint[0] + '/v1/chain/get_account', { account_name: req.params.accountname }, { timeout: 10*1000 })
   .then(response => {
     console.log('result of chain api: ', response.data);
-    res.send('respond from isAvailable with json stating result of check with api for multiple endpointss of the blockchain:' + response.data + ';');
+    if(req.params.accountname == response.data.account_name){
+      res.send('FOUND!!!');
+    }else{
+      res.send('NOT found...');
+    }
+    //res.send('respond from isAvailable :' + JSON.stringify(response.data));
   })
   .catch(err => {
     console.log('error in getting response to get_account', err.code, err.message, err.stack);
-    res.send(JSON.stringify(['error from isAvailable:', err.code, err.message, err.stack]));
+    res.send('NOT found [err]');
+    // res.send(JSON.stringify(['error from isAvailable:', err.code, err.message, err.stack]));
   })
 });
 router.post('/testEsr', function(req, res, next){
