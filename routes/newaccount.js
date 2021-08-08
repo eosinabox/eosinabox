@@ -53,7 +53,7 @@ router.post('/isAvailable/:accountname', function(req, res, next) {
     // res.send(JSON.stringify(['error from isAvailable:', err.code, err.message, err.stack]));
   })
 });
-router.post('/testEsr', function(req, res, next){
+router.post('/testEsr/:accountname/:initialamount', function(req, res, next){
   // copied from https://github.com/greymass/eosio-signing-request-demo/blob/master/examples/encode.js
   const rpc = new JsonRpc('https://jungle3.eossweden.org', { fetch }) // only needed if running in nodejs, not required in browsers
   const eos = new Api({ rpc, textDecoder, textEncoder })
@@ -80,7 +80,7 @@ router.post('/testEsr', function(req, res, next){
         }],
         "data": {
         "creator": "............1",
-        "name": "webauthn3333",
+        "name": req.params.accountname,
         "owner": {
           "threshold": 1,
           "keys": [],
@@ -113,7 +113,7 @@ router.post('/testEsr', function(req, res, next){
         }],
         "data": {
           "payer": "............1",
-          "receiver": "webauthn3333",
+          "receiver": req.params.accountname,
           "bytes": configFile.amountOfRamToBuyInBytes
         },
       },
@@ -126,7 +126,7 @@ router.post('/testEsr', function(req, res, next){
         }],
         "data": {
           "from": "............1",
-          "receiver": "webauthn3333",
+          "receiver": req.params.accountname,
           "stake_net_quantity": configFile.howMuchToStakeForNet,
           "stake_cpu_quantity": configFile.howMuchToStakeForCpu,
           "transfer": 0
@@ -141,23 +141,9 @@ router.post('/testEsr', function(req, res, next){
         }],
         "data": {
         "from": "............1",
-        "to": "webauthn3333",
-        "quantity": "9.0000 EOS",
+        "to": req.params.accountname,
+        "quantity": req.params.initialamount + ' EOS',
         "memo": configFile.siteHeader
-        }
-      },
-      {
-        "account": "eosio.token",
-        "name": "transfer",
-        "authorization": [{
-        "actor": "............1",
-        "permission": "............2"
-        }],
-        "data": {
-        "from": "............1",
-        "to": "eden",
-        "quantity": "1.0000 EOS",
-        "memo": "eden donation, eosinabox account " + 'webauthn2222'
         }
       }
     ]

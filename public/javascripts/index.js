@@ -5,7 +5,7 @@ $(()=>{
     console.log('user clicked the test-esr btn...');
     $.ajax({
       type: 'POST',
-      url: '/newaccount/testEsr',
+      url: '/newaccount/testEsr/' + $('#accountname').val() + '/' + $('#initialamount').val(),
       timeout: 15*1000
     }).done(res => {
       console.log('[testEsr] frontend res:', res);
