@@ -9,11 +9,12 @@
 
 <body>
   <h1>EOS in a Box, draft 0.01</h1>
-  <p>Will have simple jQuery input fields and simple interaction, no sockets, no templates, no react, no nothing. The focus is to make webauthn work in a minimal setup.</p>
-  <p>The front end will have a field to enter a new account name, the user then should click a button to check availability and the server should check with several API endpoints if it is available to create a new account on the blockchain.</p>
-  <p>in the near future there will be a config.json file in the back end where the site owner can enter config info. The starting template will be self-explanatory. Things like the website owner name which will be presented in to the user and a paragraph which the site owner can modify. There will be a footer line which will be "hard coded" in the html.</p>
-  <p>imporant items in the config will be, the list of blockchains this minisite supports e.g. EOS, jungle3, WAX, TELOS, PROTON... with the "human readable blockchain name", the actual blockchain hash identifier and a list of api endpoints for this blockchain</p>
+  <ol>
+    <li>Choose a new account name and click the button to verify its available</li>
+    <li>Found an available account name? Great, click the 2nd button to create the request and share it with your sponsor</li>
+  </ol>
   <label for="accountname">Name:</label><input type="text" id="accountname"><br><br>
-  <input type="button" id="btnCheckAvailability" value="Check availability">
+  <input type="button" id="btnCheckAvailability" value="Check availability"><br><br>
+  <input type="button" id="btnTestEsr" value="test esr">
 </body>
 </html>
