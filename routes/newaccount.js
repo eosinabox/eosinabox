@@ -7,7 +7,18 @@ const util = require('util')
 const zlib = require('zlib')
 const textEncoder = new util.TextEncoder()
 const textDecoder = new util.TextDecoder()
-
+const configFile = { // TODO: move this out to a real config file!
+	"siteOwnerName": "Ami Heines",
+	"siteHeader": "Account creation and wallet for friends of Ami",
+	"sponsorAccount": {
+		"actor": "webauthn1111",
+		"permission": "active"
+	},
+	"amountOfRamToBuyInBytes": 3200,
+	"howMuchToStakeForNet": "0.0100 EOS",
+	"howMuchToStakeForCpu": "0.0100 EOS",
+	"ShouldTransferStakedEos": 0
+};
 // this hard coded list should move to a config file
 var eosEndpoint = [
   'https://jungle3.eossweden.org'
@@ -75,8 +86,8 @@ router.post('/testEsr', function(req, res, next){
           "keys": [],
           "accounts": [{
           "permission": {
-            "actor": "{replaceWithConfigInfo}",
-            "permission": "{replaceWithConfigInfo}"
+            "actor": configFile.sponsorAccount.actor,
+            "permission": configFile.sponsorAccount.permission
           },
           "weight": 1
           }],
@@ -85,8 +96,8 @@ router.post('/testEsr', function(req, res, next){
         "active": {
           "threshold": 1,
           "keys": [{
-          "key": "{replaceWithWebAuthnKeys}",
-          "weight": 1
+            "key": "EOS7fVpbiuSyctgBYa2YhYq79dnxZTx9rAPS4AD1EyNNqBxDbLSFj",
+            "weight": 1
           }],
           "accounts": [],
           "waits": []
@@ -101,24 +112,24 @@ router.post('/testEsr', function(req, res, next){
         "permission": "............2"
         }],
         "data": {
-        "payer": "............1",
-        "receiver": "webauthn3333",
-        "bytes": "{replaceWithConfigInfo}"
+          "payer": "............1",
+          "receiver": "webauthn3333",
+          "bytes": configFile.amountOfRamToBuyInBytes
         },
       },
       {
         "account": "eosio",
         "name": "delegatebw",
         "authorization": [{
-        "actor": "............1",
-        "permission": "............2"
+          "actor": "............1",
+          "permission": "............2"
         }],
         "data": {
-        "from": "............1",
-        "receiver": "webauthn3333",
-        "stake_net_quantity": "{replaceWithConfigInfo}",
-        "stake_cpu_quantity": "{replaceWithConfigInfo}",
-        "transfer": 0
+          "from": "............1",
+          "receiver": "webauthn3333",
+          "stake_net_quantity": configFile.howMuchToStakeForNet,
+          "stake_cpu_quantity": configFile.howMuchToStakeForCpu,
+          "transfer": 0
         },
       },
       {
@@ -132,7 +143,7 @@ router.post('/testEsr', function(req, res, next){
         "from": "............1",
         "to": "webauthn3333",
         "quantity": "9.0000 EOS",
-        "memo": "{replaceWithConfigInfo} - {combinedWithNewUserMessage}"
+        "memo": configFile.siteHeader
         }
       },
       {
@@ -146,7 +157,7 @@ router.post('/testEsr', function(req, res, next){
         "from": "............1",
         "to": "eden",
         "quantity": "1.0000 EOS",
-        "memo": "eden donation, eosinabox account webauthn2222"
+        "memo": "eden donation, eosinabox account " + 'webauthn2222'
         }
       }
     ]
