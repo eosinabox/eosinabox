@@ -6,7 +6,6 @@
 		"permission": "active"
 	},
 	"amountOfRamToBuyInBytes": 3200,
-	"accountPayingForRam": "webauthn1111",
 	"howMuchToStakeForNet": "0.0100 EOS",
 	"howMuchToStakeForCpu": "0.0100 EOS",
 	"ShouldTransferStakedEos": 0

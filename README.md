@@ -110,5 +110,6 @@ webauthn1111 webauthn2222 {whoWillBeTheManager?} EOS7fVpbiuSyctgBYa2YhYq79dnxZTx
 Fill in the parameters from the website owner's config file and prepare a ESR that the user can send out-of-band (perhaps on telegram) to the website owner to sign.
 
 # self-powerup
+cleos -u https://jungle.eosn.io:443 get table eosio 0 powup.state
 cleos -u https://jungle.eosn.io:443 push action eosio powerup '[webauthn1111, webauthn1111, 1, 100000000, 100000000, "0.0010 EOS"]' -p webauthn1111
 cleos -u https://jungle.eosn.io:443 get account webauthn1111
