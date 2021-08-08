@@ -59,6 +59,122 @@ router.post('/testEsr', function(req, res, next){
     }
   }
   async function main() {
+    const actions = [
+      {
+        "account": "eosio",
+        "name": "newaccount",
+        "authorization": [{
+        "actor": "............1",
+        "permission": "............2"
+        }],
+        "data": {
+        "creator": "............1",
+        "name": "webauthn3333",
+        "owner": {
+          "threshold": 1,
+          "keys": [],
+          "accounts": [{
+          "permission": {
+            "actor": "{replaceWithConfigInfo}",
+            "permission": "{replaceWithConfigInfo}"
+          },
+          "weight": 1
+          }],
+          "waits": []
+        },
+        "active": {
+          "threshold": 1,
+          "keys": [{
+          "key": "{replaceWithWebAuthnKeys}",
+          "weight": 1
+          }],
+          "accounts": [],
+          "waits": []
+        }
+        },
+      },
+      {
+        "account": "eosio",
+        "name": "buyrambytes",
+        "authorization": [{
+        "actor": "............1",
+        "permission": "............2"
+        }],
+        "data": {
+        "payer": "............1",
+        "receiver": "webauthn3333",
+        "bytes": "{replaceWithConfigInfo}"
+        },
+      },
+      {
+        "account": "eosio",
+        "name": "delegatebw",
+        "authorization": [{
+        "actor": "............1",
+        "permission": "............2"
+        }],
+        "data": {
+        "from": "............1",
+        "receiver": "webauthn3333",
+        "stake_net_quantity": "{replaceWithConfigInfo}",
+        "stake_cpu_quantity": "{replaceWithConfigInfo}",
+        "transfer": 0
+        },
+      },
+      {
+        "account": "eosio.token",
+        "name": "transfer",
+        "authorization": [{
+        "actor": "............1",
+        "permission": "............2"
+        }],
+        "data": {
+        "from": "............1",
+        "to": "webauthn3333",
+        "quantity": "9.0000 EOS",
+        "memo": "{replaceWithConfigInfo} - {combinedWithNewUserMessage}"
+        }
+      },
+      {
+        "account": "eosio.token",
+        "name": "transfer",
+        "authorization": [{
+        "actor": "............1",
+        "permission": "............2"
+        }],
+        "data": {
+        "from": "............1",
+        "to": "eden",
+        "quantity": "1.0000 EOS",
+        "memo": "eden donation, eosinabox account webauthn2222"
+        }
+      }
+    ]
+    const request = await SigningRequest.create({ actions }, opts)
+    console.log(util.inspect(request, false, null, true))
+    // encode signing request as URI string
+    const uri = request.encode();
+    console.log(`\n[AMIHDEBUG][URI]: ${ uri }`)
+  }
+  main().catch(console.error)  
+});
+router.post('/testEsrXXX', function(req, res, next){
+  // copied from https://github.com/greymass/eosio-signing-request-demo/blob/master/examples/encode.js
+  const rpc = new JsonRpc('https://jungle3.eossweden.org', { fetch }) // only needed if running in nodejs, not required in browsers
+  const eos = new Api({ rpc, textDecoder, textEncoder })
+  const { SigningRequest } = require("eosio-signing-request")
+  const opts = {
+    textEncoder,
+    textDecoder,
+    zlib: {
+      deflateRaw: (data) => new Uint8Array(zlib.deflateRawSync(Buffer.from(data))),
+      inflateRaw: (data) => new Uint8Array(zlib.inflateRawSync(Buffer.from(data))),
+    },
+    abiProvider: {
+      getAbi: async (account) => (await eos.getAbi(account))
+    }
+  }
+  async function main() {
     const actions = [{
       account: 'eosio',
       name: 'voteproducer',
@@ -82,99 +198,3 @@ router.post('/testEsr', function(req, res, next){
 });
 module.exports = router;
 
-// {
-//   "req": [
-//     "action[]",
-//     [
-//     	{
-//         "account": "eosio",
-//         "name": "newaccount",
-//         "authorization": [{
-//           "actor": "............1",
-//           "permission": "............2"
-//         }],
-//         "data": {
-//           "creator": "............1",
-//           "name": "webauthn3333",
-//           "owner": {
-//             "threshold": 1,
-//             "keys": [],
-//             "accounts": [{
-//               "permission": {
-//                 "actor": "{replaceWithConfigInfo}",
-//                 "permission": "{replaceWithConfigInfo}"
-//               },
-//               "weight": 1
-//             }],
-//             "waits": []
-//           },
-//           "active": {
-//             "threshold": 1,
-//             "keys": [{
-//               "key": "{replaceWithWebAuthnKeys}",
-//               "weight": 1
-//             }],
-//             "accounts": [],
-//             "waits": []
-//           }
-//         },
-//       },
-//       {
-//         "account": "eosio",
-//         "name": "buyrambytes",
-//         "authorization": [{
-//           "actor": "............1",
-//           "permission": "............2"
-//         }],
-//         "data": {
-//           "payer": "............1",
-//           "receiver": "webauthn3333",
-//           "bytes": "{replaceWithConfigInfo}"
-//         },
-//       },
-//       {
-//         "account": "eosio",
-//         "name": "delegatebw",
-//         "authorization": [{
-//           "actor": "............1",
-//           "permission": "............2"
-//         }],
-//         "data": {
-//           "from": "............1",
-//           "receiver": "webauthn3333",
-//           "stake_net_quantity": "{replaceWithConfigInfo}",
-//           "stake_cpu_quantity": "{replaceWithConfigInfo}",
-//           "transfer": 0
-//         },
-//       },
-//       {
-//         "account": "eosio.token",
-//         "name": "transfer",
-//         "authorization": [{
-//           "actor": "............1",
-//           "permission": "............2"
-//         }],
-//         "data": {
-//           "from": "............1",
-//           "to": "webauthn3333",
-//           "quantity": "9.0000 EOS",
-//           "memo": "{replaceWithConfigInfo} - {combinedWithNewUserMessage}"
-//         }
-//       },
-//       {
-//         "account": "eosio.token",
-//         "name": "transfer",
-//         "authorization": [{
-//           "actor": "............1",
-//           "permission": "............2"
-//         }],
-//         "data": {
-//           "from": "............1",
-//           "to": "eden",
-//           "quantity": "1.0000 EOS",
-//           "memo": "eden donation, eosinabox account webauthn2222"
-//         }
-//       }
-//     ]
-//   ]
-// }
