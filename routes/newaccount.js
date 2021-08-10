@@ -147,9 +147,7 @@ router.post('/testEsr/:accountname/:initialamount', function(req, res, next){
         }
       }
     ]
-    // { "chain_id": [ "chain_id", "2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840" ] } // jungle3
-    // { "chain_id": [ "chain_alias", 0 ] } // any chain
-    const request = await SigningRequest.create({ actions, chainId: [ "chain_id", "2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840" ] }, opts)
+    const request = await SigningRequest.create({ actions, chainId: '2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840' }, opts)
     console.log(util.inspect(request, false, null, true))
     // encode signing request as URI string
     const uri = request.encode();
