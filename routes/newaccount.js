@@ -8,16 +8,16 @@ const zlib = require('zlib')
 const textEncoder = new util.TextEncoder()
 const textDecoder = new util.TextDecoder()
 const configFile = { // TODO: move this out to a real config file!
-	"siteOwnerName": "Ami Heines",
-	"siteHeader": "Account creation and wallet for friends of Ami",
-	"sponsorAccount": {
-		"actor": "webauthn1111",
-		"permission": "active"
-	},
-	"amountOfRamToBuyInBytes": 3200,
-	"howMuchToStakeForNet": "0.0100 EOS",
-	"howMuchToStakeForCpu": "0.0100 EOS",
-	"ShouldTransferStakedEos": 0
+  "siteOwnerName": "Ami Heines",
+  "siteHeader": "Account creation and wallet for friends of Ami",
+  "sponsorAccount": {
+    "actor": "webauthn1111",
+    "permission": "active"
+  },
+  "amountOfRamToBuyInBytes": 3200,
+  "howMuchToStakeForNet": "0.0100 EOS",
+  "howMuchToStakeForCpu": "0.0100 EOS",
+  "ShouldTransferStakedEos": 0
 };
 // this hard coded list should move to a config file
 var eosEndpoint = [
@@ -155,43 +155,10 @@ router.post('/testEsr/:accountname/:initialamount', function(req, res, next){
   }
   main().catch(console.error)  
 });
-router.post('/testEsrXXX', function(req, res, next){
-  // copied from https://github.com/greymass/eosio-signing-request-demo/blob/master/examples/encode.js
-  const rpc = new JsonRpc('https://jungle3.eossweden.org', { fetch }) // only needed if running in nodejs, not required in browsers
-  const eos = new Api({ rpc, textDecoder, textEncoder })
-  const { SigningRequest } = require("eosio-signing-request")
-  const opts = {
-    textEncoder,
-    textDecoder,
-    zlib: {
-      deflateRaw: (data) => new Uint8Array(zlib.deflateRawSync(Buffer.from(data))),
-      inflateRaw: (data) => new Uint8Array(zlib.inflateRawSync(Buffer.from(data))),
-    },
-    abiProvider: {
-      getAbi: async (account) => (await eos.getAbi(account))
-    }
-  }
-  async function main() {
-    const actions = [{
-      account: 'eosio',
-      name: 'voteproducer',
-      authorization: [{
-        actor: '............1',
-        permission: '............2'
-      }],
-      data: {
-        voter: '............1',
-        proxy: 'greymassvote',
-        producers: [],
-      }
-    }]
-    const request = await SigningRequest.create({ actions }, opts)
-    console.log(util.inspect(request, false, null, true))
-    // encode signing request as URI string
-    const uri = request.encode();
-    console.log(`\n[AMIHDEBUG][URI]: ${ uri }`)
-  }
-  main().catch(console.error)  
+router.post('/debugMessageToServer', function(req, res, next){
+  console.log('AMIHDEBUG debugMessageToServer?', req.body);
+  console.log('AMIHDEBUG debugMessageToServer?', JSON.stringify(req.body));
+  return res.send({ status: 'ok', msg: 'got it, thanks'});
 });
 module.exports = router;
 
