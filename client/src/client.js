@@ -791,7 +791,7 @@ $(() => {
     if(o.action == 'createAccount'){
       const cleosCommand = [
         `cleos -u ${gChain[gState.chain]} system newaccount`,
-        `_CREATOR_ACCOUNT_ ${o.accountName} ${o.custodianAccountName}@active ${o.pubkey}`,
+        `CREATOR_ACCOUNT ${o.accountName} ${o.custodianAccountName}@active ${o.pubkey}`,
         `--stake-net "0.0010 EOS" --stake-cpu "0.0010 EOS" --buy-ram-kbytes 3`,
       ].join(' ');
       $(`.eosinabox_sharedinfo_cleos`).html(cleosCommand);
