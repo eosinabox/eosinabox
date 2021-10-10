@@ -41,6 +41,7 @@ localStorage will have the blockchain and account name.
  * advanced key management, accept pubKey, timeDelay, weights, multiple such options per permission
  * easy page: add existing account to this phone (to be signed by owner or active key of this account elsewhere)
  * easy page, move active to this phone, similat to above
+ * cloud backup of localStorage, if user wants and agrees
 
  * choose between Jungle3 and EOS main net
  * PWA install, capture and let install internally?
