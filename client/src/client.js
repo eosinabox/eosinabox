@@ -670,6 +670,7 @@ $(() => {
   $('.eosinabox_transfer_fromMyAccounts').on('click', '.fromMyAccountsItem', (e) => {
     localStorage.currentAccount = $(e.target).html();
     $('#eosinabox_transfer_from').html( $(e.target).html() );
+    $('.eosinabox_transfer_fromSharedInfo').html( $(e.target).html() );
     updateBalance();
   });
 
