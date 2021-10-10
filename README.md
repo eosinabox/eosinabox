@@ -1,8 +1,6 @@
 # github
 
-    https://github.com/eosinabox/eosinabox2
-
-Will probably soonish move to https://github.com/eosinabox/eosinabox
+    https://github.com/eosinabox/eosinabox
 
 # EOS in a Box
 
