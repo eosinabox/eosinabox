@@ -152,7 +152,7 @@ app.post("/createEsr", async (req, res) => {
     const request = await SigningRequest.create({ actions: req.body.actions, chainId: chainId[req.body.chain] }, opts);
     const uri = request.encode();
     console.log(`AMIHDEBUG [createEsr][2][URI]: ${ uri }`)
-    res.status(200).send({ esr: uri });
+    res.status(200).send({ uri });
 
 } catch (error) {
     console.log('error in [createEsr]', error)

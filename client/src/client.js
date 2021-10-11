@@ -771,11 +771,12 @@ $(() => {
         },
       }
     ];
-    const ESR = await fetch('/createEsr', {
+    const response = await fetch('/createEsr', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chain: gState.chain, actions })
     });
+    const ESR = await response.json();
     consoleLog({ ESR });
 
     const shareTxt = [
@@ -786,7 +787,7 @@ $(() => {
       `&custodianAccountName=${gState.shareEssentials.custodianAccountName}&`,
       `pubkey=${gState.shareEssentials.pubkey} `,
       `or use this ESR link for Anchor wallet: `,
-      `${ESR}`,
+      `${ESR.uri}`,
     ].join('');
     callMyShare(shareTxt);
     gotoHome();
