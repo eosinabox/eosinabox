@@ -131,9 +131,7 @@ app.post("/getNewPubKey", async (req, res) => {
 app.post("/createEsr", async (req, res) => {
   try {
     // https://github.com/greymass/eosio-signing-request https://github.com/eosio-eps/EEPs/blob/master/EEPS/eep-7.md
-    console.log('AMIHDEBUG [createEsr][0] esr, req body::', req.body);
     console.log('AMIHDEBUG [createEsr][0b] esr, req.params.chain::', req.body.chain);
-    console.log('AMIHDEBUG [createEsr][0c] esr, chain[req.params.chain]::', chain[req.body.chain]);
     const rpc = new JsonRpc(chain[req.body.chain], { fetch });
     const textEncoder = new TextEncoder();
     const textDecoder = new TextDecoder();
@@ -151,9 +149,7 @@ app.post("/createEsr", async (req, res) => {
     }
     ///////////////////////////////////////////////////////////////////////////////////
     console.log('AMIHDEBUG [createEsr][1a] actions:::', JSON.stringify(req.body.actions, null, 2));
-    const actions = JSON.parse(req.body.actions);
-    console.log('AMIHDEBUG [createEsr][1b] actions:::', JSON.stringify(actions, null, 2));
-    const request = await SigningRequest.create({ actions, chainId: chainId[req.body.chain] }, opts);
+    const request = await SigningRequest.create({ actions: req.body.actions, chainId: chainId[req.body.chain] }, opts);
     const uri = request.encode();
     console.log(`AMIHDEBUG [createEsr][2][URI]: ${ uri }`)
     res.status(200).send({ esr: uri });
