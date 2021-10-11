@@ -30,7 +30,10 @@ const chain = {
   jungle3: 'http://jungle3.cryptolions.io:80',
   eos    : 'http://api.eos.cryptolions.io',
 }
-
+const chainId = {
+  jungle3: '2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840',
+  eos    : 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
+}
 /**
  * Routes Definitions
  */
@@ -125,26 +128,39 @@ app.post("/getNewPubKey", async (req, res) => {
     res.status(200).send({ msg: 'error in getNewPubKey' });
   }
 });
-// const jungle3testnet = '2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840';
-// app.post("/prepareEsr", (req, res) => {
-//   try{
-//     const rpc = new JsonRpc(chain[req.params.chain], { fetch });
-//     const textEncoder = new TextEncoder();
-//     const textDecoder = new TextDecoder();
-//     const api = new Api({ rpc, textDecoder, textEncoder });
-//     const opts = {
-//       textEncoder,
-//       textDecoder,
-//       zlib: {
-//         deflateRaw: (data) => new Uint8Array(zlib.deflateRawSync(Buffer.from(data))),
-//         inflateRaw: (data) => new Uint8Array(zlib.inflateRawSync(Buffer.from(data))),
-//       },
-//       abiProvider: {
-//         getAbi: async (account) => (await api.getAbi(account))
-//       }
-//     }
-//     console.log('AMIHDEBUG esr, req body::', req.body);
-//     /////////////////////////////////////////////////////////////////////////////////
+app.post("/createEsr", async (req, res) => {
+  try {
+    // https://github.com/greymass/eosio-signing-request https://github.com/eosio-eps/EEPs/blob/master/EEPS/eep-7.md
+    const rpc = new JsonRpc(chain[req.params.chain], { fetch });
+    const textEncoder = new TextEncoder();
+    const textDecoder = new TextDecoder();
+    const api = new Api({ rpc, textDecoder, textEncoder });
+    const opts = {
+      textEncoder,
+      textDecoder,
+      zlib: {
+        deflateRaw: (data) => new Uint8Array(zlib.deflateRawSync(Buffer.from(data))),
+        inflateRaw: (data) => new Uint8Array(zlib.inflateRawSync(Buffer.from(data))),
+      },
+      abiProvider: {
+        getAbi: async (account) => (await api.getAbi(account))
+      }
+    }
+    console.log('AMIHDEBUG [createEsr][0] esr, req body::', req.body);
+    ///////////////////////////////////////////////////////////////////////////////////
+    console.log('AMIHDEBUG [createEsr][1a] actions:::', JSON.stringify(req.params.actions, null, 2));
+    const actions = JSON.parse(req.params.actions);
+    console.log('AMIHDEBUG [createEsr][1b] actions:::', JSON.stringify(actions, null, 2));
+    const request = await SigningRequest.create({ actions, chainId: chainId[req.params.chain] }, opts);
+    const uri = request.encode();
+    console.log(`AMIHDEBUG [createEsr][2][URI]: ${ uri }`)
+    res.status(200).send({ esr: uri });
+
+} catch (error) {
+    console.log('error in [createEsr]', error)
+    res.status(200).send({ msg: 'error in createEsr' });
+  }
+});
 //     async function main() {
 //       console.log('[main][0]');
 //       const actions = [

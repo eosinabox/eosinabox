@@ -114,7 +114,7 @@ $(() => {
     $('#eosinabox_accountName')[0].setCustomValidity('');
     $('#eosinabox_accountName')[0].reportValidity();
     $('#eosinabox_accountName').val( $('#eosinabox_accountName').val().toLowerCase() );
-    const len = $('#eosinabox_accountName').val().length;
+    let len = $('#eosinabox_accountName').val().length;
     if(len > 12){
       $('#eosinabox_accountName').val( $('#eosinabox_accountName').val().substr(0,12) );
       len = $('#eosinabox_accountName').val().length;
@@ -151,7 +151,7 @@ $(() => {
     $('#eosinabox_custodianAccountName')[0].setCustomValidity('');
     $('#eosinabox_custodianAccountName')[0].reportValidity();
     $('#eosinabox_custodianAccountName').val( $('#eosinabox_custodianAccountName').val().toLowerCase() );
-    const len = $('#eosinabox_custodianAccountName').val().length;
+    let len = $('#eosinabox_custodianAccountName').val().length;
     if(len > 12){
       $('#eosinabox_custodianAccountName').val( $('#eosinabox_custodianAccountName').val().substr(0,12) );
       len = $('#eosinabox_custodianAccountName').val().length;
@@ -204,12 +204,12 @@ $(() => {
     }
   }
   const getCurrencyBalance = async (chain, code, account, symbol) => {
-    if(account=='no account yet...' || account==null){ return [ 'No account...' ]; }
+    if(account=='no account yet...' || account==null || !account){ return [ 'No account...' ]; }
     const response = await fetch(`/getCurrencyBalance/${chain}/${code}/${account}/${symbol}`);
     return response.json();
   }
   const getAccountInfo = async (chain, account) => {
-    if(account=='no account yet...' || account==null){ return {}; }
+    if(account=='no account yet...' || account==null || !account){ return {}; }
     const response = await fetch(`/getAccountInfo/${chain}/${account}`);
     return response.json();
   }
@@ -223,7 +223,7 @@ $(() => {
     const currentAccCh = getCurrentAccountChain();
     const currentAccNm = getCurrentAccountName();
     const accountInfo = await getAccountInfo( currentAccCh, currentAccNm );
-    if(!!accountInfo.errMsg || currentAccNm=='no account yet...'){
+    if(!!accountInfo.errMsg || currentAccNm=='no account yet...' || !currentAccNm){
       $('#eosinabox_balance').html( `Account not found <i class="eosinabox_viewOnExplorer bi bi-eye h6 text-primary"></i>` );
       $('#eosinabox_power1').html( `perhaps the custodian` );
       $('#eosinabox_power2').html( `needs to create it for you` );
@@ -368,7 +368,13 @@ $(() => {
       attestation: "none" // "direct" is not needed, why bother reading all the different types of attestations?
       // the authData contains the pubKey and we will *maybe* check the attestation later, in a future version
     };
-    const credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+    let credential;
+    try {
+      credential = await navigator.credentials.create({ publicKey: publicKeyCredentialCreationOptions });
+    } catch (error) {
+      consoleLog({msg: 'err in [navigator.credentials.create]', errorMessage: error.message});
+      eosinaboxToast('Create Key Failed with error: ' + error.message);
+    }
     const credForServer = {
       rpid: rp.id,
       id: eosjs_serialize.arrayToHex(new Uint8Array(credential.rawId)),
@@ -704,7 +710,7 @@ $(() => {
     );
   });
 
-  $('#eosinabox_share').on('click', (e)=>{
+  $('#eosinabox_share').on('click', async (e)=>{
     gState.shareEssentials = {
       custodianAccountName: $('#eosinabox_custodianAccountName').val(),
       accountName:          $('#eosinabox_accountName').val(),
@@ -713,10 +719,75 @@ $(() => {
     localStorage.currentAccount = gState.chain + ':' + $('#eosinabox_accountName').val().toLowerCase();
     addAccountToLocalStorage(localStorage.currentAccount);
     localStorage.currentChain = gState.chain;
-    const shareTxt = `https://eosinabox.com/#sharedInfo?action=createAccount&chain=${gState.chain}&` +
-      `accountName=${gState.shareEssentials.accountName}` +
-      `&custodianAccountName=${gState.shareEssentials.custodianAccountName}&` +
-      `pubkey=${gState.shareEssentials.pubkey}`;
+    // call createEsr on server and get back the ESR (TODO: make this a front end call if possible)
+    const actions = [
+      {
+        "account": "eosio",
+        "name": "newaccount",
+        "authorization": [{ "actor": "............1", "permission": "............2" }],
+        "data": {
+          "creator": "............1",
+          "name": gState.shareEssentials.accountName,
+          "owner": {
+            "threshold": 1,
+            "keys": [],
+            "accounts": [{
+            "permission": {
+              "actor": gState.shareEssentials.custodianAccountName,
+              "permission": "active"
+            },
+            "weight": 1
+            }],
+            "waits": []
+          },
+          "active": {
+            "threshold": 1,
+            "keys": [{ "key": gState.shareEssentials.pubkey, "weight": 1 }],
+            "accounts": [],
+            "waits": []
+          }
+        },
+      },
+      {
+        "account": "eosio",
+        "name": "buyrambytes",
+        "authorization": [{ "actor": "............1", "permission": "............2" }],
+        "data": {
+          "payer": "............1",
+          "receiver": gState.shareEssentials.accountName,
+          "bytes": 3200
+        },
+      },
+      {
+        "account": "eosio",
+        "name": "delegatebw",
+        "authorization": [{ "actor": "............1", "permission": "............2" }],
+        "data": {
+          "from": "............1",
+          "receiver": gState.shareEssentials.accountName,
+          "stake_net_quantity": "0.0100 EOS",
+          "stake_cpu_quantity": "0.0100 EOS",
+          "transfer": 0
+        },
+      }
+    ];
+    const ESR = await fetch('/createEsr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chain: gState.chain, actions })
+    });
+    consoleLog({ ESR });
+
+    const shareTxt = [
+      `Hello, this is an EOS-in-a-Box account creation request, if you were `,
+      `expecting this message, please either click the link to open it in EOSinaBox: `,
+      `https://eosinabox.com/#sharedInfo?action=createAccount&chain=${gState.chain}&`,
+      `accountName=${gState.shareEssentials.accountName}`,
+      `&custodianAccountName=${gState.shareEssentials.custodianAccountName}&`,
+      `pubkey=${gState.shareEssentials.pubkey} `,
+      `or use this ESR link for Anchor wallet: `,
+      `${ESR}`,
+    ].join('');
     callMyShare(shareTxt);
     gotoHome();
   });
