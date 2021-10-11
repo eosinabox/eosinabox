@@ -853,7 +853,11 @@ $(() => {
       var param = params[i].split('=');
       o[param[0]] = param[1];
       if( param[0]=='chain' ){ gState.chain = o.chain; }
-      $(`.eosinabox_sharedinfo_${param[0]}`).html(param[1]);
+      if( param[0]=='esr' ){
+        $(`.eosinabox_sharedinfo_${param[0]}`).html(`<a href="${param[1]}">Open Anchor Wallet</a>`);
+      }else{
+        $(`.eosinabox_sharedinfo_${param[0]}`).html(param[1]);
+      }
     }
     localStorage.sharedInfo = JSON.stringify(o);
     history.pushState('', '', window.location.pathname); // delete the share info, so it won't go back again to that page.
