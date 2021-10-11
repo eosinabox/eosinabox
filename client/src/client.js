@@ -902,3 +902,48 @@ $(() => {
   }
 });
 
+////////////////////////////////////////////////////////////////////////////////////////////////////
+// ESR human readable?
+////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// x = require("eosio-signing-request");
+// zlib = require('zlib');
+// const textEncoder = new TextEncoder();
+// const textDecoder = new TextDecoder();
+
+// const opts = {
+// 	textEncoder,
+// 	textDecoder,
+// 	zlib: {
+// 		deflateRaw: (data) => new Uint8Array(zlib.deflateRawSync(Buffer.from(data))),
+// 		inflateRaw: (data) => new Uint8Array(zlib.inflateRawSync(Buffer.from(data))),
+// 	}
+// }
+// decodedEsr = x.SigningRequest.from('esr:gmPUYlrAahfV890qbBf_LcEnN_WYLJYsWlXy57zb1ZUCJRkOjMwMIPDKIJTBYd4spZQdsxgZGSCACUonwwQ-TKla-bBNMg_MZ3Ro49icmtv3CMRZ8dbICCgKkmBkYt74K_73HQ7x79u3vxaQuKa1zUrZR7F-g5yj-VPXD07ML5cx8abmF2fmJSblV-gl5-fCjAc7YsOpfx7Fe-0wHCGC7ogGHiRdDPZa0ssWeWHoMkTXlQLls7j6B4NodD7ICwA', opts)
+
+// > decodedEsr.data.req.value[0].account.toString()
+// 'eosio'
+// > decodedEsr.data.req.value[0].name.toString()
+// 'newaccount'
+// > decodedEsr.data.req.value[0].authorization.toString()
+// '............1@............2'
+// > decodedEsr.data.req.value[0].data.toString()
+// '0100000000000000f0947aa9e186196e010000000001408608b3656d8ee200000000a8ed323201000001000000010203b1fa5ffbdc0817f7b7b7eb1018d62ab63a234c217fb01e4137e545f04203e9a6020d656f73696e61626f782e636f6d01000000'
+
+// > decodedEsr.data.req.value[1].account.toString()
+// 'eosio'
+// > decodedEsr.data.req.value[1].name.toString()
+// 'buyrambytes'
+// > decodedEsr.data.req.value[1].authorization.toString()
+// '............1@............2'
+// > decodedEsr.data.req.value[1].data.toString()
+// '0100000000000000f0947aa9e186196e800c0000'
+
+// > decodedEsr.data.req.value[2].account.toString()
+// 'eosio'
+// > decodedEsr.data.req.value[2].name.toString()
+// 'delegatebw'
+// > decodedEsr.data.req.value[2].authorization.toString()
+// '............1@............2'
+// > decodedEsr.data.req.value[2].data.toString()
+// '0100000000000000f0947aa9e186196e640000000000000004454f5300000000640000000000000004454f530000000000'
