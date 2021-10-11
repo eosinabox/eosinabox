@@ -781,13 +781,11 @@ $(() => {
 
     const shareTxt = [
       `Hello, this is an EOS-in-a-Box account creation request, if you were `,
-      `expecting this message, please either click the link to open it in EOSinaBox:\n\n`,
+      `expecting this message, please open the link:\n\n`,
       `https://eosinabox.com/#sharedInfo?action=createAccount&chain=${gState.chain}&`,
       `accountName=${gState.shareEssentials.accountName}`,
       `&custodianAccountName=${gState.shareEssentials.custodianAccountName}&`,
-      `pubkey=${gState.shareEssentials.pubkey} `,
-      `\n\nor use this ESR link for Anchor wallet:\n\n`,
-      `${ESR.uri}`,
+      `pubkey=${gState.shareEssentials.pubkey}&esr=${ESR.uri}`,
     ].join('');
     callMyShare(shareTxt);
     gotoHome();
@@ -849,6 +847,7 @@ $(() => {
     $('.eosinabox_sharedinfo_accountName').html('');
     $('.eosinabox_sharedinfo_custodianAccountName').html('');
     $('.eosinabox_sharedinfo_pubkey').html('');
+    $('.eosinabox_sharedinfo_esr').html('');
     $('.eosinabox_sharedinfo_cleos').html('');
     for(var i=0; i<params.length; i++){
       var param = params[i].split('=');

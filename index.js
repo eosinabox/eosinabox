@@ -148,7 +148,7 @@ app.post("/createEsr", async (req, res) => {
       }
     }
     ///////////////////////////////////////////////////////////////////////////////////
-    console.log('AMIHDEBUG [createEsr][1a] actions:::', JSON.stringify(req.body.actions, null, 2));
+    // console.log('AMIHDEBUG [createEsr][1a] actions:::', JSON.stringify(req.body.actions, null, 2));
     const request = await SigningRequest.create({ actions: req.body.actions, chainId: chainId[req.body.chain] }, opts);
     const uri = request.encode();
     // console.log(`AMIHDEBUG [createEsr][2][URI]: ${ uri }`)
