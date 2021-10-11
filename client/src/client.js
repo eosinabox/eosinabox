@@ -777,16 +777,16 @@ $(() => {
       body: JSON.stringify({ chain: gState.chain, actions })
     });
     const ESR = await response.json();
-    consoleLog({ ESR });
+    // consoleLog({ ESR });
 
     const shareTxt = [
       `Hello, this is an EOS-in-a-Box account creation request, if you were `,
-      `expecting this message, please either click the link to open it in EOSinaBox: `,
+      `expecting this message, please either click the link to open it in EOSinaBox:\n\n`,
       `https://eosinabox.com/#sharedInfo?action=createAccount&chain=${gState.chain}&`,
       `accountName=${gState.shareEssentials.accountName}`,
       `&custodianAccountName=${gState.shareEssentials.custodianAccountName}&`,
       `pubkey=${gState.shareEssentials.pubkey} `,
-      `or use this ESR link for Anchor wallet: `,
+      `\n\nor use this ESR link for Anchor wallet:\n\n`,
       `${ESR.uri}`,
     ].join('');
     callMyShare(shareTxt);
