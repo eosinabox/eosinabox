@@ -796,6 +796,7 @@ $(() => {
         `--stake-net "0.0010 EOS" --stake-cpu "0.0010 EOS" --buy-ram-kbytes 3`,
       ].join(' ');
       $(`.eosinabox_sharedinfo_cleos`).html(cleosCommand);
+      $('.eosinabox_transfer_fromMyAccounts').html(localStorage.currentAccount);
       $('.eosinabox_page').hide();
       $(`.eosinabox_page_sharedInfo`).show();
     }else if(o.action == 'inviteToCreateAccount'){
