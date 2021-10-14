@@ -16,7 +16,7 @@ const eosinaboxToast = (msg) => {
 }
 const repopulateMyAccounts = () => {
   const accoultListString = localStorage.allAccounts;
-  let accountList = []; if(!!accoultListString){ accountList = JSON.parse(accoultListString); }
+  let accountList = []; if(!!accoultListString){ accountList = [... new Set( JSON.parse(accoultListString) )]; }
   let s = '';
   for(let i=0; i<accountList.length; i++){
     s += `<a class="dropdown-item text-primary fromMyAccountsItem" href="#">${accountList[i]}</a>`;
@@ -26,11 +26,12 @@ const repopulateMyAccounts = () => {
 }
 const addAccountToLocalStorage = (accountWithChainPrefix) => {
   const parts = accountWithChainPrefix.split(':');
-  if(parts.length<2 || parts[0].length==0 || parts[1].length==0){ return; }
+  if(parts.length<2 || parts[0].length==0 || parts[1].length==0){ return; } // prevent empty account entry
   const accoultListString = localStorage.allAccounts;
+  if(!!localStorage.allAccounts?.includes('"' + accountWithChainPrefix + '"')){ return; } // prevent duplicate entry
   let accountList = []; if(!!accoultListString){ accountList = JSON.parse(accoultListString); }
   accountList.push(accountWithChainPrefix);
-  localStorage.allAccounts = JSON.stringify( accountList );
+  localStorage.allAccounts = JSON.stringify( [... new Set(accountList)] );// remove previous duplicates if exist
   repopulateMyAccounts();
 }
 const getCurrentAccountName = () => {
