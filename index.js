@@ -2,6 +2,7 @@
  * Required External Modules
  */
 const express = require("express");
+var cors = require('cors');
 const path = require("path");
 const cbor = require("cbor");
 const { Api, JsonRpc, Serialize, Numeric } = require('eosjs');
@@ -13,6 +14,7 @@ const zlib = require('zlib');
  * App Variables
  */
 const app = express();
+app.use(cors());
 
 app.use( bodyParser.json() );                       // to support JSON-encoded bodies
 // app.use(bodyParser.urlencoded({ extended: true })); // to support URL-encoded bodies 
