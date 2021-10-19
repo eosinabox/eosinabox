@@ -129,7 +129,7 @@ app.post("/getNewPubKey", async (req, res) => {
     res.status(200).send({ pubkey: key });
   } catch (error) {
     console.log('error in [getNewPubKey]', error)
-    res.status(200).send({ msg: 'error in getNewPubKey' });
+    res.status(400).send({ msg: 'error in getNewPubKey' });
   }
 });
 app.post("/createEsr", async (req, res) => {
@@ -160,7 +160,7 @@ app.post("/createEsr", async (req, res) => {
 
 } catch (error) {
     console.log('error in [createEsr]', error)
-    res.status(200).send({ msg: 'error in createEsr' });
+    res.status(400).send({ msg: 'error in createEsr' });
   }
 });
 //     async function main() {
@@ -286,6 +286,7 @@ app.get("/getCurrencyBalance/:chain/:code/:account/:symbol", (req, res) => {
     }
     catch(err){
       console.log('AMIHDEBUG [getCurrencyBalance] error', err);
+      // return status 200 since this is interpreted as OK in the client side, account not created yet
       res.status(200).send({ errMsg: 'getCurrencyBalance', err });
     }
   })();
@@ -300,6 +301,7 @@ app.get("/getAccountInfo/:chain/:account", (req, res) => {
     }
     catch(err){
       console.log('AMIHDEBUG [getAccountInfo] error', err);
+      // return status 200 since this is interpreted as OK in the client side, account name available.
       res.status(200).send({ errMsg: 'getAccountInfo', err });
     }
   })();

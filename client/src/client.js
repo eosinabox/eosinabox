@@ -295,6 +295,11 @@ $(() => {
       }
       wizardTo(4);
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard4')){
+      if(!gState.pubkey){
+        $('#eosinbox_createKeys').removeClass('btn-primary').addClass('btn-danger');
+        return;
+      }
+      $('#eosinbox_createKeys').removeClass('btn-danger').addClass('btn-primary');
       wizardTo(5);
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard5')){
       wizardTo(5);
@@ -342,6 +347,7 @@ $(() => {
   });
   $('#eosinbox_createKeys, .eosinbox_createKeysClass').on('click', async (event) => {
     event.preventDefault();
+    gState.pubkey = false;
     // AMIHDEBUG TODO: generate random string on server and manage it in a session,
     // Perhaps this is not needed, not worried about replay attacks, discuss...
     const randomStringFromServer = 'replayAttackProtectionRandomStringNotNeeded?';
