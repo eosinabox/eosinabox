@@ -347,6 +347,7 @@ $(() => {
   });
   $('#eosinbox_createKeys, .eosinbox_createKeysClass').on('click', async (event) => {
     event.preventDefault();
+    $('#eosinbox_createKeys').removeClass('btn-danger').addClass('btn-primary');
     gState.pubkey = false;
     // AMIHDEBUG TODO: generate random string on server and manage it in a session,
     // Perhaps this is not needed, not worried about replay attacks, discuss...
