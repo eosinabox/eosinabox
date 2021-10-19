@@ -14,7 +14,9 @@ const zlib = require('zlib');
  * App Variables
  */
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: "https://eosinabox.com"
+}));
 
 app.use( bodyParser.json() );                       // to support JSON-encoded bodies
 // app.use(bodyParser.urlencoded({ extended: true })); // to support URL-encoded bodies 
