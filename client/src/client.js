@@ -826,9 +826,9 @@ $(() => {
   /////////
   $('.toast').hide(); // aarg! why is the toast not showing but blocking the elements under it?
   $('.toast').on('hidden.bs.toast', ()=> { $('.toast').hide(); })
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('./pwaServiceWorker.js');
-  }
+  // if ('serviceWorker' in navigator) {
+  //   navigator.serviceWorker.register('./pwaServiceWorker.js');
+  // }
   repopulateMyAccounts();
   if(!localStorage.currentChain){ localStorage.currentChain = 'jungle4'; }
   gState.chain = localStorage.currentChain;
