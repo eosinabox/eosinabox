@@ -1,5 +1,5 @@
 var gState = {
-  chain: 'jungle3',
+  chain: 'jungle4',
   accountName: false,
   custodianAccountName: false,
   pubkey: false,
@@ -8,6 +8,7 @@ var gState = {
 };
 const gChain = {
   jungle3: 'https://jungle3.cryptolions.io',
+  jungle4: 'https://jungle4.cryptolions.io',
   eos    : 'https://api.eos.cryptolions.io',
 }
 const eosinaboxToast = (msg) => {
@@ -54,12 +55,12 @@ const getCurrentAccountName = () => {
 const getCurrentAccountChain = () => {
   const part = localStorage.currentAccount?.split(':');
   // empty? new client phone, no account yet
-  // just one element? old format, no chain prefix, so must be jungle3
+  // just one element? old format, no chain prefix, so must be jungle4
   // 2 parts? eosChain:accountname
   if(!part || part.length==0){
     return 'no account yet...'
   }else if(part.length==1){
-    return 'jungle3';
+    return 'jungle4';
   }else{
     if(part[1]==''){
       localStorage.currentAccount = JSON.parse(localStorage.allAccounts)[0];
@@ -219,7 +220,7 @@ $(() => {
     if((typeof chain=='object') || chain==null){
       chain = gState.chain;
     }
-    if(!chain){ chain = 'jungle3'; } // still no chain?? fall back to jungle3
+    if(!chain){ chain = 'jungle4'; } // still no chain?? fall back to jungle4
     // const balance = await getCurrencyBalance( getCurrentAccountChain(), 'eosio.token', getCurrentAccountName(),'EOS' );
     const currentAccCh = getCurrentAccountChain();
     const currentAccNm = getCurrentAccountName();
@@ -332,8 +333,8 @@ $(() => {
   });
   $('#eosinabox_powerup_gauge svg').on('click', async () => {
     if(gState.gaugeEstimatedNumOfTx < 4){
-      if(getCurrentAccountChain() == 'jungle3'){
-        eosinaboxToast('Please use the Help menu link manually for Jungle3 accounts');
+      if(getCurrentAccountChain() == 'jungle4'){
+        eosinaboxToast('Please use the Help menu link manually for Jungle4 accounts');
       }else{
         const response = await fetch('https://api.eospowerup.io/freePowerup/' + getCurrentAccountName());
         consoleLog({ freepowerup: response });
@@ -442,7 +443,7 @@ $(() => {
     let o = JSON.parse(localStorage.sharedInfo);
     // https://eosinabox.com/#sharedInfo?
     // action=createAccount&
-    // chain=jungle3&
+    // chain=jungle4&
     // accountName=cggdggffgyft&
     // custodianAccountName=webauthn1111&
     // pubkey=PUB_WA_AwTqYqJEwQ3B4bzNGyxHT25qZCxRfrjgYnshr97otStVYZJ7uA5EAkEey2RoKZCyu7pxaAStoGV1ieCc3tUk
@@ -601,7 +602,7 @@ $(() => {
     for (const key of keys){ signatureProvider.keys.set(key.key, key.credentialId); }
     const rpc = new eosjs_jsonrpc.JsonRpc(gChain[getCurrentAccountChain()]);
     const api = new eosjs_api.Api({ rpc, signatureProvider });
-    // cleos -u https://jungle3.cryptolions.io set account permission webauthn1111 active PUB_WA_77Nes48N65f1 -p webauthn1111@owner
+    // cleos -u https://jungle4.cryptolions.io set account permission webauthn1111 active PUB_WA_77Nes48N65f1 -p webauthn1111@owner
     const replaceKeysAccountName = $('.eosinabox_accountNameClassRestoreAccountTransaction').html();
     const replaceKeysPubKey = $('.eosinabox_pubkeyClassRestoreAccountTransaction').html();
     // const replaceKeysCustodian = $('.eosinabox_custodianAccountNameRestoreAccountTransaction').val();
@@ -654,7 +655,7 @@ $(() => {
   //     // $('#eosinabox_pubkey').html(data.pubkey);
   //     gState.esr = data.esr;
   //     gState.cleos = [
-  //       `cleos -u https://jungle3.cryptolions.io:443 system newaccount`,
+  //       `cleos -u https://jungle4.cryptolions.io:443 system newaccount`,
   //       `__CREATOR_ACCOUNT__ ${$('#eosinabox_accountName').val()}`,
   //       `${$('#eosinabox_custodianAccountName').val()}@active ${$('#eosinabox_pubkey').html()}`,
   //       `--stake-net "0.0010 EOS" --stake-cpu "0.0010 EOS" --buy-ram-kbytes 3`,
@@ -677,7 +678,7 @@ $(() => {
       if(getCurrentAccountChain()=='eos'){
       window.open('https://bloks.io/account/' + getCurrentAccountName(), '_blank').focus();
     }else{
-      window.open('https://jungle3.bloks.io/account/' + getCurrentAccountName(), '_blank').focus();
+      window.open('https://jungle4.eosq.eosnation.io/account/' + getCurrentAccountName(), '_blank').focus();
     }
   });
 
@@ -816,7 +817,7 @@ $(() => {
     if( $(e.target).text()=='EOS' ){
       gState.chain = 'eos';
     }else{
-      gState.chain = 'jungle3';
+      gState.chain = 'jungle4';
     }
     $('.eosinabox_dropdown_blockchain .btn').removeClass('btn-outline-danger').addClass('btn-outline-primary');
     $('.eosinabox_dropdown_blockchain>button').html(`${$(e.target).text()} `);
@@ -829,7 +830,7 @@ $(() => {
     navigator.serviceWorker.register('./pwaServiceWorker.js');
   }
   repopulateMyAccounts();
-  if(!localStorage.currentChain){ localStorage.currentChain = 'jungle3'; }
+  if(!localStorage.currentChain){ localStorage.currentChain = 'jungle4'; }
   gState.chain = localStorage.currentChain;
   try { updateBalance(gState.chain); } catch (error) { consoleLog({ msg: 'updateBalanceErr:398', error }); }
   if(typeof(PublicKeyCredential)=='undefined'){ // won't work if browser is not modern
@@ -870,8 +871,8 @@ $(() => {
     localStorage.sharedInfo = JSON.stringify(o);
     history.pushState('', '', window.location.pathname); // delete the share info, so it won't go back again to that page.
     // full share of create account OR partial share of invite friend?
-    // https://eosinabox.com/#sharedInfo?action=createAccount&chain=jungle3&accountName=aminewphone1&custodianAccountName=webauthntest&pubkey=PUB_WA_9vAuvYoJ3iWMKp9hEwfRaz645GQZ89F4w1e6XA4DCQGTh4aQwtQVNQ9MGVYbGa48suGGAuDZPpuFmjHEKvzp
-    // https://eosinabox.com/#sharedInfo?action=inviteToCreateAccount&chain=jungle3&custodianAccountName=undefined
+    // https://eosinabox.com/#sharedInfo?action=createAccount&chain=jungle4&accountName=aminewphone1&custodianAccountName=webauthntest&pubkey=PUB_WA_9vAuvYoJ3iWMKp9hEwfRaz645GQZ89F4w1e6XA4DCQGTh4aQwtQVNQ9MGVYbGa48suGGAuDZPpuFmjHEKvzp
+    // https://eosinabox.com/#sharedInfo?action=inviteToCreateAccount&chain=jungle4&custodianAccountName=undefined
     if(o.action == 'createAccount'){
       const cleosCommand = [
         `cleos -u ${gChain[gState.chain]} system newaccount`,

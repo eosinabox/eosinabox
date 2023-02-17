@@ -27,15 +27,17 @@ const port = process.env.PORT || "8000";
  *  App Configuration
  */
  // TODO: add dotEnv for external config items
- // http://jungle3.cryptolions.io:80 https://jungle3.cryptolions.io:443
+ // http://jungle4.cryptolions.io:80 https://jungle4.cryptolions.io:443
  // from https://cryptolions.io/bp.json
  // http://api.eos.cryptolions.io", "ssl_endpoint": "https://api.eos.cryptolions.io",
 const chain = {
   jungle3: 'http://jungle3.cryptolions.io:80',
-  eos    : 'http://api.eos.cryptolions.io',
+  jungle4: 'http://jungle4.cryptolions.io:80',
+  eos    : 'https://api.eos.cryptolions.io',
 }
 const chainId = {
   jungle3: '2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840',
+  jungle4: '73e4385a2708e6d7048834fbc1079f2fabb17b3c125b146af438971e90716c4d',
   eos    : 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
 }
 /**
