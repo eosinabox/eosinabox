@@ -392,6 +392,9 @@ $(() => {
     }
     // // TODO: discuss, perhaps there is no need to do this on the server side, we can do most (ALL?)
     // // of the processing on the front end.
+    const pubkey = getNewPubKeyClientSide(credForServer); // AMIHDEBUG_TODO - implement client side!
+    let credentialIdHexCLIENTSIDE = eosjs_serialize.arrayToHex(new Uint8Array(credential.rawId));
+    console.log("MIHDEBUG this is what I got from client side pubkey, credentialIdHexCLIENTSIDE:", pubkey, credentialIdHexCLIENTSIDE)
     fetch('/getNewPubKey', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -911,6 +914,91 @@ $(() => {
   }
 });
 
+////////////////////////////////////////////////////////////////////
+const getNewPubKeyClientSide = (credForServer) => {
+  try {
+    rpid = credForServer.rpid;
+    id = credForServer.id;
+    attestationObject = credForServer.attestationObject;
+    clientDataJSON = credForServer.clientDataJSON;
+    console.log('AMIHDEBUG getNewPubKey-ClientSide [0] credForServer:', credForServer);
+    // https://medium.com/webauthnworks/verifying-fido2-responses-4691288c8770
+    // User information is stored in authData. AuthData is a rawBuffer struct:
+    // len / runningTotal
+    //  32 / 32: RPID hash, hash of the rpId which is basically the effective domain or host
+    //   1 / 33: flags, State of authenticator during authentication. Bits 0 and 2 are User Presence and User Verification flags. Bit 6 is AT(Attested Credential Data). Must be set when attestedCredentialData is presented. Bit 7 must be set if extension data is presented.
+    //   4 / 37: counter
+    //        AttestedCredentialData:
+    //  16 / 53: AAGUID
+    //   2 / 55: CredID Len
+    //   X / 55+X: CredID
+    //  77: COSE PubKey
+    const utf8Decoder = new TextDecoder('utf-8');
+    const decodedClientData = utf8Decoder.decode( Serialize.hexToUint8Array(clientDataJSON) );
+    const clientDataObj = JSON.parse(decodedClientData);
+    console.log('AMIHDEBUG getNewPubKey [1] clientDataObj:', clientDataObj);
+    const decodedAttestationObj = cbor.decode( attestationObject );
+    console.log('AMIHDEBUG getNewPubKey [2] attestationObj:', decodedAttestationObj );
+    const {authData} = decodedAttestationObj;
+    const flagsFromAuthData = (new Uint8Array(authData.slice(32,33)))[0];
+    const AttestationFlags = {
+      userPresent: 0x01,
+      userVerified: 0x04,
+      attestedCredentialPresent: 0x40,
+      extensionDataPresent: 0x80,
+    }
+    const flagsToPresence = (flags) => {
+      if (flags & AttestationFlags.userVerified)
+        return 2; // UserPresence.verified
+      else if (flags & AttestationFlags.userPresent)
+        return 1; // UserPresence.present
+      else
+        return 0; // UserPresence.none
+    }
+    const flagsToPresenceResult = flagsToPresence(flagsFromAuthData);
+    console.log('AMIHDEBUG flagsToPresenceResult:', flagsToPresenceResult);
+    // get the length of the credential ID
+    const dataView = new DataView( new ArrayBuffer(2) );
+    const idLenBytes = authData.slice(53, 55);
+    idLenBytes.forEach( (value, index) => dataView.setUint8( index, value ));
+    const credentialIdLength = dataView.getUint16();
+    const credentialId = authData.slice( 55, 55 + credentialIdLength); // get the credential ID
+    const publicKeyBytes = authData.slice( 55 + credentialIdLength ); // get the public key object
+    const pubKey = cbor.decode( publicKeyBytes); // the publicKeyBytes are encoded again as CBOR
+    console.log('AMIHDEBUG getNewPubKey [5] pubKey:', pubKey);
+    if (pubKey.get(1) !== 2){
+      throw new Error('Public key is not EC2');
+    }
+    if (pubKey.get(3) !== -7){
+      throw new Error('Public key is not ES256');
+    }
+    if (pubKey.get(-1) !== 1){
+      throw new Error('Public key has unsupported curve');
+    }
+    const x = pubKey.get(-2);
+    const y = pubKey.get(-3);
+    if (x.length !== 32 || y.length !== 32){
+      throw new Error('Public key has invalid X or Y size');
+    }
+    const ser = new Serialize.SerialBuffer({textEncoder: new TextEncoder(), textDecoder: new TextDecoder()});
+    ser.push((y[31] & 1) ? 3 : 2);
+    ser.pushArray(x);
+    ser.push(flagsToPresenceResult); // enum UserPresence {none = 0,present = 1,verified = 2}
+    ser.pushString(req.body.rpid);
+    const compact = ser.asUint8Array();
+    const key = Numeric.publicKeyToString({
+        type: Numeric.KeyType.wa,
+        data: compact,
+    });
+    console.log('AMIHDEBUG [6] key: ', key)
+    // res.status(200).send({pubkey: key, x: JSON.stringify(x), y: JSON.stringify(y)});
+    return { pubkey: key };
+  } catch (error) {
+    console.log('error in [getNewPubKey]', error)
+    throw new Error('error in getNewPubKey');
+  }
+};
+//////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ESR human readable?
 ////////////////////////////////////////////////////////////////////////////////////////////////////
