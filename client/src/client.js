@@ -227,6 +227,9 @@ $(() => {
     // const balance = await getCurrencyBalance( getCurrentAccountChain(), 'eosio.token', getCurrentAccountName(),'EOS' );
     const currentAccCh = getCurrentAccountChain();
     const currentAccNm = getCurrentAccountName();
+    const currentToken = gChain[chainOrDefault(currentAccCh)];
+    $('#eosinabox_transfer_quantity').attr('placeholder', (0).toFixed(currentToken.precision) + ' ' + currentToken.symbol);
+    $('#eosinabox_powerup_gauge, #eosinabox_power1, #eosinabox_power2').toggle(!!currentToken.systemContract);
     const accountInfo = await getAccountInfo( currentAccCh, currentAccNm );
     if(!!accountInfo.errMsg || currentAccNm=='no account yet...' || !currentAccNm){
       $('#eosinabox_balance').html( `Account not found <i class="eosinabox_viewOnExplorer bi bi-eye h6 text-primary"></i>` );
@@ -417,6 +420,7 @@ $(() => {
     });
   }
   const gotoHome = () => {
+    $('body').removeClass('eosinabox_wide');
     $('.eosinabox_page').hide();
     if(!localStorage.allAccounts){
       $(`.eosinabox_page_createAccount`).show();
@@ -921,6 +925,7 @@ $(() => {
     $('.eosinabox_page').hide();
     const href = e.target.href.split('#')[1];
     $(`.eosinabox_page_${href}`).show();
+    $('body').toggleClass('eosinabox_wide', href == 'admin'); // the sign-ups table gets a wide card on a laptop
     if(href == 'signin'){ gState.awaitingAccount = false; showSignin('#eosinabox_signinHolder'); }
     if(href == 'admin'){ showAdmin(); }
   });

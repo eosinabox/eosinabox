@@ -24,9 +24,9 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.4/umd/popper.min.js"></script><!-- Bootstrap tooltips -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.0/js/bootstrap.min.js"></script><!-- Bootstrap core JavaScript -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.19.1/js/mdb.min.js"></script><!-- MDB core JavaScript -->
-    <script src="chains.js?18"></script>
-    <script src="core.bundle.js?18"></script>
-    <script src="client.js?18"></script>
+    <script src="chains.js?19"></script>
+    <script src="core.bundle.js?19"></script>
+    <script src="client.js?19"></script>
     <style>
       html,body {
         height: 100%;
@@ -96,10 +96,39 @@
       .eosinabox_page_createAccount .wizard { display: none; }
       .eosinabox_page_createAccount .wizard0 { display: block; }
       .eosinabox_help_technical { display: none; }
+
+      /* On a laptop the wallet is the same phone screen, in a phone-sized card in the middle of
+         the page — the way wallet pop-ups (MetaMask, Phantom) and phone-first web apps present
+         themselves on a wide screen. Nothing is rearranged, so it looks as it does on the phone. */
+      @media (min-width: 600px) {
+        html {
+          height: 100%;
+          overflow: hidden; /* so the card, not the browser window, is what scrolls */
+          background: #e7ebf2 radial-gradient(circle at 50% 0%, #f6f8fc 0%, #dde3ee 75%) fixed;
+        }
+        body {
+          width: 420px;
+          height: calc(100vh - 56px);
+          margin: 28px auto;
+          padding-top: 0;
+          overflow-x: hidden;
+          overflow-y: auto;
+          background: #fff;
+          border-radius: 30px;
+          box-shadow: 0 0 0 10px #1d2433, 0 24px 60px rgba(20, 30, 60, .35);
+          scrollbar-width: none;
+        }
+        body::-webkit-scrollbar { display: none; }
+        /* the bar stays at the top of the card, not of the browser window */
+        nav.navbar.fixed-top { position: sticky; }
+        .container, .container-fluid { max-width: 100%; }
+        /* the operators' table needs room: that one page gets a wide card */
+        body.eosinabox_wide { width: min(1100px, calc(100vw - 76px)); }
+      }
     </style>
   </head>
   <body>
-    <nav class="navbar fixed-top navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar fixed-top navbar-light bg-light">
       <a class="navbar-brand" href="#">EOS in a Box</a>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
