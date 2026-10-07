@@ -13,6 +13,34 @@ There is no database and no sessions, All info will be saved on the user's phone
 
 localStorage will have the blockchain and account name.
 
+# Run it against a local chain
+
+The wallet can be tried end to end without a phone, a public chain or any tokens.
+`local-chain/` builds a single-node Antelope (Spring 1.2.2) chain in Docker with the
+`WEBAUTHN_KEY` protocol feature activated and a `SYS` token; the test drives the wallet in
+headless Chrome with a virtual authenticator standing in for the fingerprint reader.
+
+    npm install
+    npm run chain:build     # once
+    npm run chain:up        # throwaway chain on http://localhost:28888
+    npm test
+    npm run chain:down
+
+What the test shows:
+
+1. the wallet creates a key pair in the authenticator and derives the `PUB_WA_` key in the browser;
+2. that key is set as the `active` key of a new account on the chain;
+3. the wallet signs a token transfer with the passkey and the chain executes it (`SIG_WA_` signature);
+4. a signature from a different passkey is refused by the wallet, and refused by the chain when replayed.
+
+Two things worth knowing before pointing the wallet at another chain:
+
+* nodeos only accepts WebAuthn signatures made on an `https://` origin, so the wallet has to be
+  served over TLS even locally. Set `TLS_KEY` and `TLS_CERT` and the server listens on https
+  (the test makes a throwaway certificate).
+* a WebAuthn key is bound to the domain that created it. On `eosinabox.com` keys are bound to
+  that domain; on any other host they are bound to the host serving the page.
+
 # Server code
 
     ./index.js

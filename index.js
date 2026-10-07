@@ -34,6 +34,7 @@ const chain = {
   jungle3: 'http://jungle3.cryptolions.io:80',
   jungle4: 'http://jungle4.cryptolions.io:80',
   eos    : 'https://api.eos.cryptolions.io',
+  local  : process.env.LOCAL_CHAIN_URL || 'http://localhost:28888', // the Docker chain in ./local-chain
 }
 const chainId = {
   jungle3: '2a02a0053e5a8cf73a56ba0fda11e4d92e0238a4a2aa74fccf46d5a910746840',
@@ -311,6 +312,16 @@ app.get("/getAccountInfo/:chain/:account", (req, res) => {
 /**
  * Server Activation
  */
-app.listen(port, () => {
-  console.log(`Listening to requests on http://localhost:${port}`);
-});
+// Antelope only accepts WebAuthn signatures made on an https:// origin, so even a local
+// demo has to be served over TLS: point TLS_KEY and TLS_CERT at a key and certificate.
+if (process.env.TLS_KEY && process.env.TLS_CERT) {
+  const fs = require('fs');
+  const credentials = { key: fs.readFileSync(process.env.TLS_KEY), cert: fs.readFileSync(process.env.TLS_CERT) };
+  require('https').createServer(credentials, app).listen(port, () => {
+    console.log(`Listening to requests on https://localhost:${port}`);
+  });
+} else {
+  app.listen(port, () => {
+    console.log(`Listening to requests on http://localhost:${port}`);
+  });
+}

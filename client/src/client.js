@@ -10,6 +10,7 @@ const gChain = {
   jungle3: 'https://jungle3.cryptolions.io',
   jungle4: 'https://jungle4.cryptolions.io',
   eos    : 'https://api.eos.cryptolions.io',
+  local  : 'http://localhost:28888', // the Docker chain in ./local-chain
 }
 const eosinaboxToast = (msg) => {
   $('.toast-body').html(msg);
@@ -355,7 +356,9 @@ $(() => {
     const randomStringFromServer = 'replayAttackProtectionRandomStringNotNeeded?';
     const rp = {
       name: "Ami Heines",
-      id: "eosinabox.com", // AMIHDEBUG TODO: update this when installing on another web site, e.g. eosinabox.com (move out to a config .json file?)
+      // WebAuthn keys are bound to this domain. Production keys stay on eosinabox.com;
+      // anywhere else (localhost, a demo host) the key is bound to the host serving the page.
+      id: location.hostname.endsWith("eosinabox.com") ? "eosinabox.com" : location.hostname,
     };
     const accName = $('#eosinabox_accountName').val();
     const publicKeyCredentialCreationOptions = {
@@ -390,40 +393,22 @@ $(() => {
       attestationObject: eosjs_serialize.arrayToHex(new Uint8Array(credential.response.attestationObject)),
       clientDataJSON: eosjs_serialize.arrayToHex(new Uint8Array(credential.response.clientDataJSON)),
     }
-    // // TODO: discuss, perhaps there is no need to do this on the server side, we can do most (ALL?)
-    // // of the processing on the front end.
-    const pubkey = getNewPubKeyClientSide(credForServer); // AMIHDEBUG_TODO - implement client side!
-    let credentialIdHexCLIENTSIDE = eosjs_serialize.arrayToHex(new Uint8Array(credential.rawId));
-    console.log("MIHDEBUG this is what I got from client side pubkey, credentialIdHexCLIENTSIDE:", pubkey, credentialIdHexCLIENTSIDE)
-    fetch('/getNewPubKey', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(credForServer)
-    })
-    .then(response => response.json())
-    .then(async data => {
+    // The public key is derived here, in the browser: nothing about the new key goes to the server.
+    try {
+      const pubkey = getNewPubKeyClientSide(credForServer);
       gState.pubkey = true;
-      $('#eosinabox_pubkey').html(data.pubkey);
-      $('.eosinabox_pubkeyClass').html(data.pubkey);
+      $('#eosinabox_pubkey').html(pubkey);
+      $('.eosinabox_pubkeyClass').html(pubkey);
       // save in localStorage
-      let credentialIdHex = eosjs_serialize.arrayToHex(new Uint8Array(credential.rawId));
-      if( !localStorage['eosinabox_pubkeys'] ){
-        localStorage['eosinabox_pubkeys'] = JSON.stringify( [{ credentialId: credentialIdHex, key: data.pubkey }] );
-      }else{
-        let o = JSON.parse(localStorage['eosinabox_pubkeys']);
-        o.push({ credentialId: credentialIdHex, key: data.pubkey });
-        localStorage['eosinabox_pubkeys'] = JSON.stringify( o );
-        // save just the new key, destroy the older ones!
-        // localStorage['eosinabox_pubkeys'] = JSON.stringify( [{ credentialId: credentialIdHex, key: data.pubkey }] );
-      }
-      // checkIfAllConditionsMet();
-      await consoleLog( data );
-    })
-    .catch( err => {
+      const stored = localStorage['eosinabox_pubkeys'] ? JSON.parse(localStorage['eosinabox_pubkeys']) : [];
+      stored.push({ credentialId: credForServer.id, key: pubkey });
+      localStorage['eosinabox_pubkeys'] = JSON.stringify( stored );
+      await consoleLog({ pubkey });
+    } catch (err) {
       gState.pubkey = false;
-      // checkIfAllConditionsMet();
-      consoleLog(err);
-    });
+      consoleLog({ msg: 'err in [getNewPubKeyClientSide]', errorMessage: err.message });
+      eosinaboxToast('Create Key Failed with error: ' + err.message);
+    }
   });
   ///////////////////////////////////////////////////////////////////////////////////
   $('#eosinbox_declineTransaction').on('click', async (event) => {
@@ -915,88 +900,39 @@ $(() => {
 });
 
 ////////////////////////////////////////////////////////////////////
+// Turn a WebAuthn attestation into an Antelope PUB_WA_ key, entirely in the browser.
+// authData layout (https://www.w3.org/TR/webauthn-2/#sctn-authenticator-data):
+//   0..32   hash of the rpId, the domain the key is bound to
+//   32      flags: bit 0 user present, bit 2 user verified, bit 6 attested credential data
+//   33..37  signature counter
+//   37..53  AAGUID
+//   53..55  credential id length L
+//   55..55+L credential id, followed by the COSE public key (CBOR)
 const getNewPubKeyClientSide = (credForServer) => {
-  try {
-    rpid = credForServer.rpid;
-    id = credForServer.id;
-    attestationObject = credForServer.attestationObject;
-    clientDataJSON = credForServer.clientDataJSON;
-    console.log('AMIHDEBUG getNewPubKey-ClientSide [0] credForServer:', credForServer);
-    // https://medium.com/webauthnworks/verifying-fido2-responses-4691288c8770
-    // User information is stored in authData. AuthData is a rawBuffer struct:
-    // len / runningTotal
-    //  32 / 32: RPID hash, hash of the rpId which is basically the effective domain or host
-    //   1 / 33: flags, State of authenticator during authentication. Bits 0 and 2 are User Presence and User Verification flags. Bit 6 is AT(Attested Credential Data). Must be set when attestedCredentialData is presented. Bit 7 must be set if extension data is presented.
-    //   4 / 37: counter
-    //        AttestedCredentialData:
-    //  16 / 53: AAGUID
-    //   2 / 55: CredID Len
-    //   X / 55+X: CredID
-    //  77: COSE PubKey
-    const utf8Decoder = new TextDecoder('utf-8');
-    const decodedClientData = utf8Decoder.decode( Serialize.hexToUint8Array(clientDataJSON) );
-    const clientDataObj = JSON.parse(decodedClientData);
-    console.log('AMIHDEBUG getNewPubKey [1] clientDataObj:', clientDataObj);
-    const decodedAttestationObj = cbor.decode( attestationObject );
-    console.log('AMIHDEBUG getNewPubKey [2] attestationObj:', decodedAttestationObj );
-    const {authData} = decodedAttestationObj;
-    const flagsFromAuthData = (new Uint8Array(authData.slice(32,33)))[0];
-    const AttestationFlags = {
-      userPresent: 0x01,
-      userVerified: 0x04,
-      attestedCredentialPresent: 0x40,
-      extensionDataPresent: 0x80,
-    }
-    const flagsToPresence = (flags) => {
-      if (flags & AttestationFlags.userVerified)
-        return 2; // UserPresence.verified
-      else if (flags & AttestationFlags.userPresent)
-        return 1; // UserPresence.present
-      else
-        return 0; // UserPresence.none
-    }
-    const flagsToPresenceResult = flagsToPresence(flagsFromAuthData);
-    console.log('AMIHDEBUG flagsToPresenceResult:', flagsToPresenceResult);
-    // get the length of the credential ID
-    const dataView = new DataView( new ArrayBuffer(2) );
-    const idLenBytes = authData.slice(53, 55);
-    idLenBytes.forEach( (value, index) => dataView.setUint8( index, value ));
-    const credentialIdLength = dataView.getUint16();
-    const credentialId = authData.slice( 55, 55 + credentialIdLength); // get the credential ID
-    const publicKeyBytes = authData.slice( 55 + credentialIdLength ); // get the public key object
-    const pubKey = cbor.decode( publicKeyBytes); // the publicKeyBytes are encoded again as CBOR
-    console.log('AMIHDEBUG getNewPubKey [5] pubKey:', pubKey);
-    if (pubKey.get(1) !== 2){
-      throw new Error('Public key is not EC2');
-    }
-    if (pubKey.get(3) !== -7){
-      throw new Error('Public key is not ES256');
-    }
-    if (pubKey.get(-1) !== 1){
-      throw new Error('Public key has unsupported curve');
-    }
-    const x = pubKey.get(-2);
-    const y = pubKey.get(-3);
-    if (x.length !== 32 || y.length !== 32){
-      throw new Error('Public key has invalid X or Y size');
-    }
-    const ser = new Serialize.SerialBuffer({textEncoder: new TextEncoder(), textDecoder: new TextDecoder()});
-    ser.push((y[31] & 1) ? 3 : 2);
-    ser.pushArray(x);
-    ser.push(flagsToPresenceResult); // enum UserPresence {none = 0,present = 1,verified = 2}
-    ser.pushString(req.body.rpid);
-    const compact = ser.asUint8Array();
-    const key = Numeric.publicKeyToString({
-        type: Numeric.KeyType.wa,
-        data: compact,
-    });
-    console.log('AMIHDEBUG [6] key: ', key)
-    // res.status(200).send({pubkey: key, x: JSON.stringify(x), y: JSON.stringify(y)});
-    return { pubkey: key };
-  } catch (error) {
-    console.log('error in [getNewPubKey]', error)
-    throw new Error('error in getNewPubKey');
+  const toArrayBuffer = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+  const attestation = CBOR.decode( toArrayBuffer( eosjs_serialize.hexToUint8Array(credForServer.attestationObject) ) );
+  const authData = new Uint8Array(attestation.authData);
+  const flags = authData[32];
+  if (!(flags & 0x40)){
+    throw new Error('No attested credential data in the authenticator response');
   }
+  // enum UserPresence { none = 0, present = 1, verified = 2 }
+  const userPresence = (flags & 0x04) ? 2 : (flags & 0x01) ? 1 : 0;
+  const credentialIdLength = (authData[53] << 8) | authData[54];
+  const cose = CBOR.decode( toArrayBuffer( authData.subarray(55 + credentialIdLength) ) );
+  // COSE_Key labels: 1 kty (2 = EC2), 3 alg (-7 = ES256), -1 crv (1 = P-256), -2 x, -3 y
+  if (cose[1] !== 2){ throw new Error('Public key is not EC2'); }
+  if (cose[3] !== -7){ throw new Error('Public key is not ES256'); }
+  if (cose[-1] !== 1){ throw new Error('Public key has unsupported curve'); }
+  const x = cose[-2];
+  const y = cose[-3];
+  if (x.length !== 32 || y.length !== 32){ throw new Error('Public key has invalid X or Y size'); }
+  const ser = new eosjs_serialize.SerialBuffer({textEncoder: new TextEncoder(), textDecoder: new TextDecoder()});
+  ser.push((y[31] & 1) ? 3 : 2); // compressed point prefix
+  ser.pushArray(x);
+  ser.push(userPresence);
+  ser.pushString(credForServer.rpid);
+  return eosjs_numeric.publicKeyToString({ type: eosjs_numeric.KeyType.wa, data: ser.asUint8Array() });
 };
 //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////

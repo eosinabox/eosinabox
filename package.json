@@ -4,13 +4,18 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon ./index.js"
+    "start": "nodemon ./index.js",
+    "chain:build": "docker build -t eosinabox-local-chain local-chain",
+    "chain:up": "docker rm -f eosinabox-chain 2>/dev/null; docker run -d --name eosinabox-chain -p 127.0.0.1:28888:8888 eosinabox-local-chain && until docker exec eosinabox-chain test -f /booted; do sleep 1; done && echo chain ready on http://localhost:28888",
+    "chain:down": "docker rm -f eosinabox-chain",
+    "test": "node --test test/*.test.js"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "nodemon": "^3.1.10"
+    "nodemon": "^3.1.10",
+    "puppeteer-core": "^25.12.0"
   },
   "dependencies": {
     "body-parser": "^1.19.0",
