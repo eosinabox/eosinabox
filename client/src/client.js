@@ -1,17 +1,23 @@
 var gState = {
-  chain: 'jungle4',
+  chain: null, // set from chains.js below
   accountName: false,
   custodianAccountName: false,
   pubkey: false,
   esr: '',
   gaugeEstimatedNumOfTx: 9999
 };
-const gChain = {
-  jungle3: 'https://jungle3.cryptolions.io',
-  jungle4: 'https://jungle4.cryptolions.io',
-  eos    : 'https://api.eos.cryptolions.io',
-  local  : 'http://localhost:28888', // the Docker chain in ./local-chain
-}
+// Chains come from chains.js, which the site owner edits; nothing about a chain is hardcoded here.
+const gChain = window.EOSINABOX_CHAINS;
+const gDefaultChain = Object.keys(gChain).find((id) => gChain[id].default) || Object.keys(gChain)[0];
+const chainOrDefault = (id) => (gChain[id] ? id : gDefaultChain);
+gState.chain = gDefaultChain;
+// Sign with the passkeys this device holds and push to the chain; no server is involved.
+const walletTransact = (chainId, tx) =>
+  EosinaboxCore.transact(gChain[chainOrDefault(chainId)], withoutResourceActions(chainId, tx.actions), JSON.parse(localStorage.eosinabox_pubkeys || '[]'));
+// Chains without the system contract have no RAM market or staking to pay for.
+const withoutResourceActions = (chainId, actions) =>
+  gChain[chainOrDefault(chainId)].systemContract ? actions : actions.filter((a) => !['buyrambytes', 'delegatebw'].includes(a.name));
+const escapeHtml = (text) => $('<div>').text(text).html();
 const eosinaboxToast = (msg) => {
   $('.toast-body').html(msg);
   $('.toast').show().toast('show');
@@ -56,12 +62,12 @@ const getCurrentAccountName = () => {
 const getCurrentAccountChain = () => {
   const part = localStorage.currentAccount?.split(':');
   // empty? new client phone, no account yet
-  // just one element? old format, no chain prefix, so must be jungle4
+  // just one element? old format, no chain prefix, so use the default chain
   // 2 parts? eosChain:accountname
   if(!part || part.length==0){
     return 'no account yet...'
   }else if(part.length==1){
-    return 'jungle4';
+    return gDefaultChain;
   }else{
     if(part[1]==''){
       localStorage.currentAccount = JSON.parse(localStorage.allAccounts)[0];
@@ -73,11 +79,6 @@ const getCurrentAccountChain = () => {
 }
 const consoleLog = async (logObj) => {
   console.log('[consoleLog] ', logObj);
-  await fetch('/consoleLog', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(logObj)
-  });
 }
 const callMyShare = (txtToShare) => {
   // make behavior uniform across iOS and Android, sacrifice the nice "share" feature which is only avalable in Android
@@ -193,35 +194,36 @@ $(() => {
       eosinaboxToast('The account name contains illegal characters. Characters should be in the range: a-z or 1-5, please fix and try again.');
       return;
     }
-    const rpc = new eosjs_jsonrpc.JsonRpc(gChain[chain]);
     try{
-      let acc = await rpc.get_account(accToCheck);
-      callback({ accountAvailable: false });
+      const acc = await EosinaboxCore.getAccount(gChain[chainOrDefault(chain)], accToCheck);
+      callback({ accountAvailable: acc === null });
     }
     catch(err){
-      if(!!err.details && !!err.details[0].message && err.details[0].message.substr(0,11) == 'unknown key'){
-        callback({ accountAvailable: true });
-      }else{
-        callback({ accountAvailable: false });
-      }
+      callback({ accountAvailable: false });
     }
   }
   const getCurrencyBalance = async (chain, code, account, symbol) => {
     if(account=='no account yet...' || account==null || !account){ return [ 'No account...' ]; }
-    const response = await fetch(`/getCurrencyBalance/${chain}/${code}/${account}/${symbol}`);
-    return response.json();
+    return [ await EosinaboxCore.getBalance(gChain[chainOrDefault(chain)], account) ];
   }
   const getAccountInfo = async (chain, account) => {
     if(account=='no account yet...' || account==null || !account){ return {}; }
-    const response = await fetch(`/getAccountInfo/${chain}/${account}`);
-    return response.json();
+    try{
+      const info = await EosinaboxCore.getAccount(gChain[chainOrDefault(chain)], account);
+      if(!info){ return { errMsg: 'getAccountInfo' }; }
+      // the token balance, which also works on chains with no system contract
+      info.balance = await EosinaboxCore.getBalance(gChain[chainOrDefault(chain)], account);
+      return info;
+    }catch(err){
+      return { errMsg: 'getAccountInfo', err };
+    }
   }
   const updateBalance = async (chain) => {
     $('#eosinabox_balance').html('...');
     if((typeof chain=='object') || chain==null){
       chain = gState.chain;
     }
-    if(!chain){ chain = 'jungle4'; } // still no chain?? fall back to jungle4
+    if(!chain){ chain = gDefaultChain; }
     // const balance = await getCurrencyBalance( getCurrentAccountChain(), 'eosio.token', getCurrentAccountName(),'EOS' );
     const currentAccCh = getCurrentAccountChain();
     const currentAccNm = getCurrentAccountName();
@@ -231,7 +233,7 @@ $(() => {
       $('#eosinabox_power1').html( `perhaps the custodian` );
       $('#eosinabox_power2').html( `needs to create it for you` );
     }else{
-      $('#eosinabox_balance').html( `${!!accountInfo.core_liquid_balance ? accountInfo.core_liquid_balance : 0} <i class="eosinabox_refresh bi bi-arrow-repeat h2"></i> <i class="eosinabox_viewOnExplorer bi bi-eye h2 text-primary"></i>` );
+      $('#eosinabox_balance').html( `${accountInfo.balance} <i class="eosinabox_refresh bi bi-arrow-repeat h2"></i> <i class="eosinabox_viewOnExplorer bi bi-eye h2 text-primary"></i>` );
       $('#eosinabox_power1').html( `NET available: ${Number.parseFloat(accountInfo.net_limit.available/1024).toFixed(2)} KB` );
       $('#eosinabox_power2').html( `CPU available: ${Number.parseFloat(accountInfo.cpu_limit.available/1000).toFixed(2)} ms` );
       // calc gauge settiings, each simple transaction takes about 250 usec CPU and 250 bytes NET, so take the minimum of these and divide by 250
@@ -334,10 +336,11 @@ $(() => {
   });
   $('#eosinabox_powerup_gauge svg').on('click', async () => {
     if(gState.gaugeEstimatedNumOfTx < 4){
-      if(getCurrentAccountChain() == 'jungle4'){
-        eosinaboxToast('Please use the Help menu link manually for Jungle4 accounts');
+      const powerupUrl = gChain[chainOrDefault(getCurrentAccountChain())].freePowerupUrl;
+      if(!powerupUrl){
+        eosinaboxToast('This chain has no free PowerUp service, check the Help page');
       }else{
-        const response = await fetch('https://api.eospowerup.io/freePowerup/' + getCurrentAccountName());
+        const response = await fetch(powerupUrl + getCurrentAccountName());
         consoleLog({ freepowerup: response });
         setTimeout(()=>{
           updateBalance();
@@ -386,27 +389,23 @@ $(() => {
     } catch (error) {
       consoleLog({msg: 'err in [navigator.credentials.create]', errorMessage: error.message});
       eosinaboxToast('Create Key Failed with error: ' + error.message);
+      return;
     }
-    const credForServer = {
-      rpid: rp.id,
-      id: eosjs_serialize.arrayToHex(new Uint8Array(credential.rawId)),
-      attestationObject: eosjs_serialize.arrayToHex(new Uint8Array(credential.response.attestationObject)),
-      clientDataJSON: eosjs_serialize.arrayToHex(new Uint8Array(credential.response.clientDataJSON)),
-    }
+    const credentialIdHex = EosinaboxCore.bytesToHex(new Uint8Array(credential.rawId));
     // The public key is derived here, in the browser: nothing about the new key goes to the server.
     try {
-      const pubkey = getNewPubKeyClientSide(credForServer);
+      const pubkey = EosinaboxCore.publicKeyFromAttestation(new Uint8Array(credential.response.attestationObject), rp.id);
       gState.pubkey = true;
       $('#eosinabox_pubkey').html(pubkey);
       $('.eosinabox_pubkeyClass').html(pubkey);
       // save in localStorage
       const stored = localStorage['eosinabox_pubkeys'] ? JSON.parse(localStorage['eosinabox_pubkeys']) : [];
-      stored.push({ credentialId: credForServer.id, key: pubkey });
+      stored.push({ credentialId: credentialIdHex, key: pubkey });
       localStorage['eosinabox_pubkeys'] = JSON.stringify( stored );
       await consoleLog({ pubkey });
     } catch (err) {
       gState.pubkey = false;
-      consoleLog({ msg: 'err in [getNewPubKeyClientSide]', errorMessage: err.message });
+      consoleLog({ msg: 'err in [publicKeyFromAttestation]', errorMessage: err.message });
       eosinaboxToast('Create Key Failed with error: ' + err.message);
     }
   });
@@ -420,14 +419,6 @@ $(() => {
   });
   $('#eosinbox_approveThisTransaction').on('click', async (event) => {
     event.preventDefault();
-    const signatureProvider = new eosjs_wasig.WebAuthnSignatureProvider();
-    signatureProvider.keys.clear();
-    const keys = JSON.parse( localStorage.eosinabox_pubkeys );
-    for (const key of keys){
-      signatureProvider.keys.set(key.key, key.credentialId);
-    }
-    const rpc = new eosjs_jsonrpc.JsonRpc(gChain[gState.chain]);
-    const api = new eosjs_api.Api({ rpc, signatureProvider });
     let o = JSON.parse(localStorage.sharedInfo);
     // https://eosinabox.com/#sharedInfo?
     // action=createAccount&
@@ -436,7 +427,7 @@ $(() => {
     // custodianAccountName=webauthn1111&
     // pubkey=PUB_WA_AwTqYqJEwQ3B4bzNGyxHT25qZCxRfrjgYnshr97otStVYZJ7uA5EAkEey2RoKZCyu7pxaAStoGV1ieCc3tUk
     try {
-      const result = await api.transact({
+      const result = await walletTransact(gState.chain, {
         // actions: [{
         //   account: 'eosio.token',
         //   name: 'transfer',
@@ -499,14 +490,11 @@ $(() => {
           data: {
             from: getCurrentAccountName(),
             receiver: getCurrentAccountName(),
-            stake_net_quantity: '0.0001 EOS',
-            stake_cpu_quantity: '0.0001 EOS',
+            stake_net_quantity: (0.0001).toFixed(gChain[gState.chain].precision) + ' ' + gChain[gState.chain].symbol,
+            stake_cpu_quantity: (0.0001).toFixed(gChain[gState.chain].precision) + ' ' + gChain[gState.chain].symbol,
             transfer: false,
           }
         }]
-      }, {
-        blocksBehind: 3,
-        expireSeconds: 60,
       });
       consoleLog( {logMsg: 'createdAccount!', result } );
       eosinaboxToast('Transaction sent, let the other person know you created their account and send them some EOS!');
@@ -514,8 +502,8 @@ $(() => {
       $('.eosinabox_page').hide();
       $(`.eosinabox_page_myAccount`).show();
       $('#eosinabox_transfer_from').html(localStorage.currentAccount);
-      $('#eosinabox_transfer_to').html(o.accountName);
-      $('#eosinabox_transfer_memo').html('Initial EOS transfer using EOS-in-a-Box 🌈');
+      $('#eosinabox_transfer_to').val(o.accountName);
+      $('#eosinabox_transfer_memo').val('Initial transfer using EOS-in-a-Box 🌈');
     } catch (error) {
       consoleLog( {logMsg: 'transfer EOS error!', error } );
       eosinaboxToast('Transaction failed with error, ' + error.message);
@@ -535,33 +523,23 @@ $(() => {
       ele.val('0.');
       start = end = 2;
     }
-    ele.val( parseFloat( ele.val() ).toFixed(4) + ' EOS' );
+    const token = gChain[chainOrDefault(getCurrentAccountChain())];
+    ele.val( parseFloat( ele.val() ).toFixed(token.precision) + ' ' + token.symbol );
     ele[0].setSelectionRange(start, end); // restore from variables...
   });
   $('#eosinabox_transfer_transact').on('click', async (event) => {
     event.preventDefault();
-    const signatureProvider = new eosjs_wasig.WebAuthnSignatureProvider();
-    signatureProvider.keys.clear();
-    const keys = JSON.parse( localStorage.eosinabox_pubkeys );
-    for (const key of keys){
-      signatureProvider.keys.set(key.key, key.credentialId);
-    }
-    const rpc = new eosjs_jsonrpc.JsonRpc(gChain[getCurrentAccountChain()]);
-    const api = new eosjs_api.Api({ rpc, signatureProvider });
     const to       = $('#eosinabox_transfer_to'      ).val().toLowerCase();
     const quantity = $('#eosinabox_transfer_quantity').val();
     const memo     = $('#eosinabox_transfer_memo'    ).val();
     try {
-      const result = await api.transact({
+      const result = await walletTransact(getCurrentAccountChain(), {
         actions: [{
           account: 'eosio.token',
           name: 'transfer',
           data: { from: getCurrentAccountName(), to, quantity, memo },
           authorization: [{ actor: getCurrentAccountName(), permission: 'active' }],
         }],
-      }, {
-        blocksBehind: 3,
-        expireSeconds: 60,
       });
       consoleLog( {logMsg: 'transfer EOS!', result } );
       $('#eosinabox_transfer_to'      ).val('');
@@ -584,18 +562,12 @@ $(() => {
   // change active keys!
   $('.eosinabox_buttonRestoreAccountTransaction').on('click', async (event) => {
     event.preventDefault();
-    const signatureProvider = new eosjs_wasig.WebAuthnSignatureProvider();
-    signatureProvider.keys.clear();
-    const keys = JSON.parse( localStorage.eosinabox_pubkeys );
-    for (const key of keys){ signatureProvider.keys.set(key.key, key.credentialId); }
-    const rpc = new eosjs_jsonrpc.JsonRpc(gChain[getCurrentAccountChain()]);
-    const api = new eosjs_api.Api({ rpc, signatureProvider });
     // cleos -u https://jungle4.cryptolions.io set account permission webauthn1111 active PUB_WA_77Nes48N65f1 -p webauthn1111@owner
     const replaceKeysAccountName = $('.eosinabox_accountNameClassRestoreAccountTransaction').html();
     const replaceKeysPubKey = $('.eosinabox_pubkeyClassRestoreAccountTransaction').html();
     // const replaceKeysCustodian = $('.eosinabox_custodianAccountNameRestoreAccountTransaction').val();
     try {
-      const result = await api.transact({
+      const result = await walletTransact(getCurrentAccountChain(), {
         actions: [{
           "account": "eosio",
           "name": "updateauth",
@@ -613,9 +585,6 @@ $(() => {
             }
           }
         }],
-      }, {
-        blocksBehind: 3,
-        expireSeconds: 60,
       });
       consoleLog( {logMsg: 'replaceKeys!', result } );
       $('.eosinabox_accountNameClassRestoreAccountTransaction').html('');
@@ -663,10 +632,11 @@ $(() => {
   });
   // $('.eosinabox_viewOnExplorer').on('click', (e)=>{
   $('#eosinabox_balance').on('click', '.eosinabox_viewOnExplorer', (e)=>{
-      if(getCurrentAccountChain()=='eos'){
-      window.open('https://bloks.io/account/' + getCurrentAccountName(), '_blank').focus();
+    const explorer = gChain[chainOrDefault(getCurrentAccountChain())].explorer;
+    if(explorer){
+      window.open(explorer.replace('{account}', getCurrentAccountName()), '_blank').focus();
     }else{
-      window.open('https://jungle4.eosq.eosnation.io/account/' + getCurrentAccountName(), '_blank').focus();
+      eosinaboxToast('No block explorer is configured for this chain');
     }
   });
 
@@ -686,7 +656,7 @@ $(() => {
   //     custodianAccountName: $('.eosinabox_custodianAccountNameInvite').val().toLowerCase(),
   //   };
   //   const shareInfo = {
-  //     url: `https://eosinabox.com/#sharedInfo?action=` +
+  //     url: `${location.origin}${location.pathname}#sharedInfo?action=` +
   //       `inviteToCreateAccount&chain=${gState.chain}` +
   //       `&custodianAccountName=${gState.shareEssentials.custodianAccountName}`
   //   }
@@ -701,7 +671,7 @@ $(() => {
     localStorage.currentAccount = gState.chain + ':' + $('#eosinabox_accountName').val().toLowerCase();
     addAccountToLocalStorage(localStorage.currentAccount);
     localStorage.currentChain   = gState.chain;
-    callMyShare(`https://eosinabox.com/#sharedInfo?action=restoreAccount&chain=${gState.chain}&` +
+    callMyShare(`${location.origin}${location.pathname}#sharedInfo?action=restoreAccount&chain=${gState.chain}&` +
       `accountName=${gState.shareEssentials.accountName}` +
       `&pubkey=${gState.shareEssentials.pubkey}`
     );
@@ -716,7 +686,7 @@ $(() => {
     localStorage.currentAccount = gState.chain + ':' + $('#eosinabox_accountName').val().toLowerCase();
     addAccountToLocalStorage(localStorage.currentAccount);
     localStorage.currentChain = gState.chain;
-    // call createEsr on server and get back the ESR (TODO: make this a front end call if possible)
+    // the signing request is built here in the browser
     const actions = [
       {
         "account": "eosio",
@@ -762,24 +732,19 @@ $(() => {
         "data": {
           "from": "............1",
           "receiver": gState.shareEssentials.accountName,
-          "stake_net_quantity": "0.0100 EOS",
-          "stake_cpu_quantity": "0.0100 EOS",
+          "stake_net_quantity": (0.01).toFixed(gChain[gState.chain].precision) + ' ' + gChain[gState.chain].symbol,
+          "stake_cpu_quantity": (0.01).toFixed(gChain[gState.chain].precision) + ' ' + gChain[gState.chain].symbol,
           "transfer": 0
         },
       }
     ];
-    const response = await fetch('/createEsr', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chain: gState.chain, actions })
-    });
-    const ESR = await response.json();
+    const ESR = { uri: await EosinaboxCore.createSigningRequest(gChain[gState.chain], withoutResourceActions(gState.chain, actions)) };
     // consoleLog({ ESR });
 
     const shareTxt = [
       `Hello, this is an EOS-in-a-Box account creation request, if you were `,
       `expecting this message, please open the link:\n\n`,
-      `https://eosinabox.com/#sharedInfo?action=createAccount&chain=${gState.chain}&`,
+      `${location.origin}${location.pathname}#sharedInfo?action=createAccount&chain=${gState.chain}&`,
       `accountName=${gState.shareEssentials.accountName}`,
       `&custodianAccountName=${gState.shareEssentials.custodianAccountName}&`,
       `pubkey=${gState.shareEssentials.pubkey}&esr=${ESR.uri}`,
@@ -801,12 +766,12 @@ $(() => {
     const href = e.target.href.split('#')[1];
     $(`.eosinabox_page_${href}`).show();
   });
-  $('.eosinabox_dropdown_blockchain a.dropdown-item').on('click', (e)=>{
-    if( $(e.target).text()=='EOS' ){
-      gState.chain = 'eos';
-    }else{
-      gState.chain = 'jungle4';
-    }
+  $('.eosinabox_dropdown_blockchain .dropdown-menu').html(
+    Object.keys(gChain).map((id) => `<a class="dropdown-item" data-chain="${id}" href="#">${escapeHtml(gChain[id].name)}</a>`).join('')
+  );
+  $('.eosinabox_dropdown_blockchain').on('click', 'a.dropdown-item', (e)=>{
+    e.preventDefault();
+    gState.chain = chainOrDefault($(e.target).attr('data-chain'));
     $('.eosinabox_dropdown_blockchain .btn').removeClass('btn-outline-danger').addClass('btn-outline-primary');
     $('.eosinabox_dropdown_blockchain>button').html(`${$(e.target).text()} `);
   });
@@ -818,7 +783,7 @@ $(() => {
   //   navigator.serviceWorker.register('./pwaServiceWorker.js');
   // }
   repopulateMyAccounts();
-  if(!localStorage.currentChain){ localStorage.currentChain = 'jungle4'; }
+  if(!gChain[localStorage.currentChain]){ localStorage.currentChain = gDefaultChain; }
   gState.chain = localStorage.currentChain;
   try { updateBalance(gState.chain); } catch (error) { consoleLog({ msg: 'updateBalanceErr:398', error }); }
   if(typeof(PublicKeyCredential)=='undefined'){ // won't work if browser is not modern
@@ -846,14 +811,17 @@ $(() => {
     $('.eosinabox_sharedinfo_pubkey').html('');
     $('.eosinabox_sharedinfo_esr').html('');
     $('.eosinabox_sharedinfo_cleos').html('');
+    // A shared link is untrusted input: only known fields are shown, and only as text.
+    const sharedFields = ['action', 'chain', 'accountName', 'custodianAccountName', 'pubkey', 'esr'];
     for(var i=0; i<params.length; i++){
       var param = params[i].split('=');
+      if( !sharedFields.includes(param[0]) ){ continue; }
       o[param[0]] = param[1];
-      if( param[0]=='chain' ){ gState.chain = o.chain; }
-      if( param[0]=='esr' ){
-        $(`.eosinabox_sharedinfo_${param[0]}`).html(`<a href="${param[1]}">Open Anchor Wallet</a>`);
+      if( param[0]=='chain' ){ o.chain = gState.chain = chainOrDefault(o.chain); }
+      if( param[0]=='esr' && /^esr:(\/\/)?[A-Za-z0-9_-]+$/.test(param[1]) ){
+        $('.eosinabox_sharedinfo_esr').empty().append( $('<a>').attr('href', param[1]).text('Open Anchor Wallet') );
       }else{
-        $(`.eosinabox_sharedinfo_${param[0]}`).html(param[1]);
+        $(`.eosinabox_sharedinfo_${param[0]}`).text(o[param[0]]);
       }
     }
     localStorage.sharedInfo = JSON.stringify(o);
@@ -863,27 +831,25 @@ $(() => {
     // https://eosinabox.com/#sharedInfo?action=inviteToCreateAccount&chain=jungle4&custodianAccountName=undefined
     if(o.action == 'createAccount'){
       const cleosCommand = [
-        `cleos -u ${gChain[gState.chain]} system newaccount`,
+        `cleos -u ${gChain[gState.chain].url} system newaccount`,
         `CREATOR_ACCOUNT ${o.accountName} ${o.custodianAccountName}@active ${o.pubkey}`,
-        `--stake-net "0.0010 EOS" --stake-cpu "0.0010 EOS" --buy-ram-kbytes 3`,
+        `--stake-net "0.0010 ${gChain[gState.chain].symbol}" --stake-cpu "0.0010 ${gChain[gState.chain].symbol}" --buy-ram-kbytes 3`,
       ].join(' ');
-      $(`.eosinabox_sharedinfo_cleos`).html(cleosCommand);
+      $(`.eosinabox_sharedinfo_cleos`).text(cleosCommand);
       $('.eosinabox_transfer_fromSharedInfo').html(localStorage.currentAccount);
       $('.eosinabox_page').hide();
       $(`.eosinabox_page_sharedInfo`).show();
     }else if(o.action == 'inviteToCreateAccount'){
-      $('.eosinabox_dropdown_blockchain a.dropdown-item').data('chain', o.chain);
-      $('.eosinabox_dropdown_blockchain button').html(o.chain);
+      $('.eosinabox_dropdown_blockchain button').text(gChain[gState.chain].name);
       $('#eosinabox_custodianAccountName').val(o.custodianAccountName);
       $('.eosinabox_page').hide();
       $(`.eosinabox_page_createAccount`).show();
     }else if(o.action == 'restoreAccount'){
       console.log('o.action::::restoreAccount, o:', o);
       console.log('o.action::::restoreAccount, o:', o.chain, o.pubkey, o.accountName);
-      $('.eosinabox_dropdown_blockchain a.dropdown-item').data('chain', o.chain);
-      $('.eosinabox_dropdown_blockchain button').html(o.chain);
-      $('.eosinabox_accountNameClassRestoreAccountTransaction').html(o.accountName);
-      $('.eosinabox_pubkeyClassRestoreAccountTransaction').html(o.pubkey);
+      $('.eosinabox_dropdown_blockchain button').text(gChain[gState.chain].name);
+      $('.eosinabox_accountNameClassRestoreAccountTransaction').text(o.accountName);
+      $('.eosinabox_pubkeyClassRestoreAccountTransaction').text(o.pubkey);
       // .eosinabox_custodianAccountNameRestoreAccountTransaction
       // .eosinabox_buttonRestoreAccountTransaction
       $('.eosinabox_page').hide();
@@ -899,41 +865,6 @@ $(() => {
   }
 });
 
-////////////////////////////////////////////////////////////////////
-// Turn a WebAuthn attestation into an Antelope PUB_WA_ key, entirely in the browser.
-// authData layout (https://www.w3.org/TR/webauthn-2/#sctn-authenticator-data):
-//   0..32   hash of the rpId, the domain the key is bound to
-//   32      flags: bit 0 user present, bit 2 user verified, bit 6 attested credential data
-//   33..37  signature counter
-//   37..53  AAGUID
-//   53..55  credential id length L
-//   55..55+L credential id, followed by the COSE public key (CBOR)
-const getNewPubKeyClientSide = (credForServer) => {
-  const toArrayBuffer = (u8) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
-  const attestation = CBOR.decode( toArrayBuffer( eosjs_serialize.hexToUint8Array(credForServer.attestationObject) ) );
-  const authData = new Uint8Array(attestation.authData);
-  const flags = authData[32];
-  if (!(flags & 0x40)){
-    throw new Error('No attested credential data in the authenticator response');
-  }
-  // enum UserPresence { none = 0, present = 1, verified = 2 }
-  const userPresence = (flags & 0x04) ? 2 : (flags & 0x01) ? 1 : 0;
-  const credentialIdLength = (authData[53] << 8) | authData[54];
-  const cose = CBOR.decode( toArrayBuffer( authData.subarray(55 + credentialIdLength) ) );
-  // COSE_Key labels: 1 kty (2 = EC2), 3 alg (-7 = ES256), -1 crv (1 = P-256), -2 x, -3 y
-  if (cose[1] !== 2){ throw new Error('Public key is not EC2'); }
-  if (cose[3] !== -7){ throw new Error('Public key is not ES256'); }
-  if (cose[-1] !== 1){ throw new Error('Public key has unsupported curve'); }
-  const x = cose[-2];
-  const y = cose[-3];
-  if (x.length !== 32 || y.length !== 32){ throw new Error('Public key has invalid X or Y size'); }
-  const ser = new eosjs_serialize.SerialBuffer({textEncoder: new TextEncoder(), textDecoder: new TextDecoder()});
-  ser.push((y[31] & 1) ? 3 : 2); // compressed point prefix
-  ser.pushArray(x);
-  ser.push(userPresence);
-  ser.pushString(credForServer.rpid);
-  return eosjs_numeric.publicKeyToString({ type: eosjs_numeric.KeyType.wa, data: ser.asUint8Array() });
-};
 //////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 // ESR human readable?

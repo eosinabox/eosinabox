@@ -1,30 +1,31 @@
 {
   "name": "eosinabox",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "A WebAuthn wallet for Antelope chains: static files, no server, keys in the phone's secure hardware.",
+  "main": "serve.js",
   "scripts": {
-    "start": "nodemon ./index.js",
+    "start": "node serve.js",
     "chain:build": "docker build -t eosinabox-local-chain local-chain",
     "chain:up": "docker rm -f eosinabox-chain 2>/dev/null; docker run -d --name eosinabox-chain -p 127.0.0.1:28888:8888 eosinabox-local-chain && until docker exec eosinabox-chain test -f /booted; do sleep 1; done && echo chain ready on http://localhost:28888",
     "chain:down": "docker rm -f eosinabox-chain",
-    "test": "node --test test/*.test.js"
+    "test": "npm run -s build && node --test test/*.test.js",
+    "build": "esbuild client/lib/core.mjs --bundle --format=iife --global-name=EosinaboxCore --minify --target=es2020 --outfile=client/src/core.bundle.js"
   },
   "keywords": [],
   "author": "",
   "license": "MIT",
   "devDependencies": {
-    "nodemon": "^3.1.10",
-    "puppeteer-core": "^25.12.0"
-  },
-  "dependencies": {
-    "body-parser": "^1.19.0",
-    "cbor": "^8.0.0",
-    "cors": "^2.8.5",
-    "eosio-signing-request": "^2.2.2",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0",
+    "@wharfkit/antelope": "^4.0.2",
+    "@wharfkit/signing-request": "^4.0.2",
+    "cbor-x": "^1.6.6",
     "eosjs": "^22.1.0",
-    "express": "^4.17.1",
-    "node-fetch": "^2.6.1"
+    "esbuild": "^0.28.2",
+    "node-fetch": "^2.7.0",
+    "nodemon": "^3.1.10",
+    "pako": "^3.0.2",
+    "puppeteer-core": "^25.12.0"
   },
   "overrides": {
     "elliptic": "6.6.1",

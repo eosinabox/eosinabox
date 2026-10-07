@@ -35,7 +35,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // Antelope account names: 12 characters from a-z and 1-5.
 const randomName = () => 'wa' + Array.from({ length: 10 }, () => 'abcdefghijklmnopqrstuvwxyz12345'[Math.floor(Math.random() * 31)]).join('');
 
-let server, browser, page, tlsDir, pushed = [], chainReplies = [];
+let server, browser, page, tlsDir, pushed = [], chainReplies = [], walletRequests = [];
 
 before(async () => {
   await rpc.get_info().catch(() => {
@@ -47,7 +47,7 @@ before(async () => {
   execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes',
     '-keyout', TLS_KEY, '-out', TLS_CERT, '-days', '2', '-subj', '/CN=localhost',
     '-addext', 'subjectAltName=DNS:localhost'], { stdio: 'ignore' });
-  server = spawn('node', ['index.js'], {
+  server = spawn('node', ['serve.js'], {
     cwd: path.join(__dirname, '..'), env: { ...process.env, PORT, TLS_KEY, TLS_CERT }, stdio: 'ignore',
   });
   browser = await puppeteer.launch({
@@ -66,6 +66,7 @@ before(async () => {
   });
   // Record what the wallet actually sends to the chain.
   page.on('request', (req) => {
+    if (req.url().startsWith(WALLET_URL)) walletRequests.push(req.method() + ' ' + new URL(req.url()).pathname);
     if (/\/v1\/chain\/(push|send)_transaction/.test(req.url())) pushed.push(JSON.parse(req.postData()));
   });
   page.on('response', async (res) => {
@@ -181,4 +182,49 @@ test('one passkey cannot authorise a transfer from another passkey\'s account', 
     (err) => /webauthn|challenge|signatures for it|unsatisfied/i.test(JSON.stringify(err.json ?? err.message)),
   );
   assert.equal(await balance(victim), '100.0000 SYS', 'the funds did not move');
+});
+
+test('chains come from chains.js, and the balance is read from the chain', async () => {
+  const offered = await page.evaluate(() =>
+    $('.eosinabox_dropdown_blockchain').first().find('a.dropdown-item').map((_, a) => $(a).attr('data-chain')).get());
+  const configured = await page.evaluate(() => Object.keys(window.EOSINABOX_CHAINS));
+  assert.deepEqual(offered, configured);
+  assert.ok(configured.includes('local'));
+
+  const account = randomName();
+  await createAccountOnChain(account, await createKeyInWallet(account));
+  await page.evaluate((name) => {
+    localStorage.currentAccount = 'local:' + name;
+    $('.eosinabox_refresh, #eosinabox_balance').first().trigger('click');
+  }, account);
+  await page.waitForFunction(() => $('#eosinabox_balance').text().includes('100.0000 SYS'), { timeout: 10000 });
+});
+
+test('a signing request for another wallet is built in the browser', async () => {
+  const uri = await page.evaluate(() => EosinaboxCore.createSigningRequest(window.EOSINABOX_CHAINS.local, [{
+    account: 'eosio.token', name: 'transfer',
+    authorization: [{ actor: '............1', permission: '............2' }],
+    data: { from: '............1', to: 'eosio', quantity: '1.0000 SYS', memo: 'esr' },
+  }]));
+  assert.match(uri, /^esr:(\/\/)?[A-Za-z0-9_-]{20,}$/);
+});
+
+test('a shared link cannot inject markup into the wallet', async () => {
+  const payload = encodeURIComponent('<img src=x onerror="window.__injected=1">');
+  const link = `${WALLET_URL}/#sharedInfo?action=createAccount&chain=local&accountName=${payload}` +
+    `&custodianAccountName=${payload}&pubkey=${payload}&esr=javascript:window.__injected=1&bogus=${payload}`;
+  await page.goto('about:blank');
+  await page.goto(link, { waitUntil: 'networkidle2' });
+  await sleep(500);
+  assert.equal(await page.evaluate(() => window.__injected), undefined);
+  assert.equal(await page.evaluate(() => $('.eosinabox_page_sharedInfo img[src="x"]').length), 0);
+  assert.equal(await page.evaluate(() => $('.eosinabox_sharedinfo_esr a').length), 0, 'a javascript: link is not offered');
+});
+
+test('the wallet asked its own origin for nothing but static files', () => {
+  // Keys, signatures and account data never went to the server: there is no server.
+  assert.ok(walletRequests.length > 0);
+  for (const request of walletRequests) {
+    assert.match(request, /^GET \/($|[\w./-]+\.(html|js|css|png|ico|gif|webmanifest)$)/, request);
+  }
 });
