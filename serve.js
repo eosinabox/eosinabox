@@ -17,7 +17,19 @@ const types = {
   '.gif': 'image/gif', '.png': 'image/png', '.ico': 'image/x-icon', '.svg': 'image/svg+xml',
 };
 
+// API_PROXY=http://127.0.0.1:8095 forwards /api/* there, as nginx does in production.
+const proxy = process.env.API_PROXY && new URL(process.env.API_PROXY);
+
 const handler = (req, res) => {
+  if (proxy && req.url.startsWith('/api/')) {
+    const upstream = http.request({ host: proxy.hostname, port: proxy.port, path: req.url, method: req.method, headers: req.headers }, (reply) => {
+      res.writeHead(reply.statusCode, reply.headers);
+      reply.pipe(res);
+    });
+    upstream.on('error', () => res.writeHead(502).end());
+    req.pipe(upstream);
+    return;
+  }
   if (req.method !== 'GET' && req.method !== 'HEAD') {
     res.writeHead(405).end();
     return;

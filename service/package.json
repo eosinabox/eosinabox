@@ -1,0 +1,8 @@
+{
+  "name": "eosinabox-account-service",
+  "private": true,
+  "type": "module",
+  "description": "Creates demo accounts for visitors who sign in with Google.",
+  "scripts": { "start": "node server.mjs" },
+  "dependencies": { "@wharfkit/antelope": "^4.0.2" }
+}

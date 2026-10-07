@@ -7,6 +7,9 @@
 //   systemContract   true if accounts need RAM and staked resources (public EOS-style chains)
 //   explorer         optional account page, with {account} replaced by the account name
 //   freePowerupUrl   optional free-PowerUp service; the account name is appended
+//   accountService   optional URL of the sign-in account service (see ./service): visitors
+//                    sign in with Google and get an account, instead of asking a custodian
+//   wakeUrl          optional; POSTed before a transaction, for chains that pause when idle
 //   default          the chain selected on first use
 window.EOSINABOX_CHAINS = {
   jungle4: {
@@ -32,5 +35,6 @@ window.EOSINABOX_CHAINS = {
     url: 'http://localhost:28888', // the chain in ./local-chain
     tokenContract: 'eosio.token', symbol: 'SYS', precision: 4,
     systemContract: false,
+    accountService: '/api', // served by `npm run service:local`, proxied by serve.js
   },
 };

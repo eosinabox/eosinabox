@@ -1,0 +1,19 @@
+[Unit]
+Description=eosinabox.com demo account service
+After=network.target
+
+[Service]
+User=www-data
+WorkingDirectory=/opt/eosinabox/service
+EnvironmentFile=/etc/eosinabox/accounts.env
+ExecStart=/usr/bin/node server.mjs
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/eosinabox
+
+[Install]
+WantedBy=multi-user.target

@@ -24,9 +24,9 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.4/umd/popper.min.js"></script><!-- Bootstrap tooltips -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.0/js/bootstrap.min.js"></script><!-- Bootstrap core JavaScript -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.19.1/js/mdb.min.js"></script><!-- MDB core JavaScript -->
-    <script src="chains.js?16"></script>
-    <script src="core.bundle.js?16"></script>
-    <script src="client.js?16"></script>
+    <script src="chains.js?17"></script>
+    <script src="core.bundle.js?17"></script>
+    <script src="client.js?17"></script>
     <style>
       html,body {
         height: 100%;
@@ -286,6 +286,19 @@
         <div class="col">
           <div id="eosinabox_esr" class="text-break"></div>
           <button id="eosinabox_share" class="btn btn-primary btn-sm" type="submit">Copy My Account Creation Request</button>
+          <div id="eosinabox_serviceSignup" style="display:none">
+            <h3 class="eosinabox_create_account_header">Create your demo account</h3>
+            <p>
+              Sign in with Google and your account is created on the chain with the key you just made,
+              and <span class="eosinabox_serviceGrant">some tokens</span> to try a transfer.
+            </p>
+            <p>
+              Google is only asked who you are, so the demo knows who is trying it and can limit
+              how many accounts one person makes. Your key and your fingerprint never leave this phone.
+            </p>
+            <div id="eosinabox_googleButton"></div>
+            <div id="eosinabox_serviceStatus" class="text-danger mt-3"></div>
+          </div>
         </div>
       </div>
     </div>

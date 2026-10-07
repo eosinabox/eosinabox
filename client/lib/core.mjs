@@ -130,6 +130,20 @@ export async function getBalance(chain, account) {
   return rows[0] ?? `0 ${chain.symbol}`;
 }
 
+// Some private chains stop producing blocks when idle. A transaction refers to a recent block
+// and expires within a minute, so such a chain has to be woken before one is built.
+export async function wake(chain) {
+  if (!chain.wakeUrl) return;
+  await fetch(chain.wakeUrl, { method: 'POST' }).catch(() => {});
+  const api = client(chain);
+  for (let i = 0; i < 40; i++) {
+    const info = await api.v1.chain.get_info();
+    if (Date.now() - info.head_block_time.toMilliseconds() < 3000) return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw new Error('The chain is asleep and did not wake up; try again in a moment');
+}
+
 async function buildTransaction(chain, actions) {
   const api = client(chain);
   const info = await api.v1.chain.get_info();
@@ -142,6 +156,7 @@ async function buildTransaction(chain, actions) {
 // Sign `actions` with the passkeys in `keys` ([{ key, credentialId }]) and push them.
 // `assert` is replaceable so the signing step can be exercised without a browser.
 export async function transact(chain, actions, keys, { assert = assertWithPasskey } = {}) {
+  await wake(chain);
   const { api, info, transaction } = await buildTransaction(chain, actions);
   if (chain.chainId && String(info.chain_id) !== chain.chainId) {
     throw new Error(`${chain.url} is not the configured chain (it reports ${info.chain_id})`);

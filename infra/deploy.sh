@@ -19,3 +19,10 @@ cp infra/chains.production.js "$STAGE/chains.js"
 # mktemp makes the staging directory private; publish world-readable files.
 rsync -a --delete --chmod=D755,F644 "$STAGE/" "$TARGET:$WEBROOT/"
 echo "deployed $(git rev-parse --short HEAD) -> $TARGET:$WEBROOT"
+
+# The account service: code only. Its environment file and systemd unit are installed by hand
+# (infra/eosinabox-accounts.service, service/README.md); restart it if it is running.
+rsync -a --delete --chmod=D755,F644 --exclude node_modules service/ "$TARGET:/opt/eosinabox/service/"
+ssh "$TARGET" 'cd /opt/eosinabox/service && npm install --omit=dev --no-audit --no-fund >/dev/null \
+  && if systemctl is-active --quiet eosinabox-accounts; then sudo systemctl restart eosinabox-accounts; fi'
+echo "deployed the account service -> $TARGET:/opt/eosinabox/service"

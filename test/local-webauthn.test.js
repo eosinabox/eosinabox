@@ -31,11 +31,14 @@ const admin = new Api({ rpc, signatureProvider: new JsSignatureProvider([DEV_PRI
 const push = (actions) => admin.transact({ actions }, { blocksBehind: 3, expireSeconds: 30 });
 const balance = async (account) => (await rpc.get_currency_balance('eosio.token', account, 'SYS'))[0];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const auth = (key) => ({ threshold: 1, keys: [{ key, weight: 1 }], accounts: [], waits: [] });
 
+function randomNameLater() { return 'faucet' + Math.random().toString(36).replace(/[^a-z]/g, '').padEnd(6, 'a').slice(0, 6); }
 // Antelope account names: 12 characters from a-z and 1-5.
 const randomName = () => 'wa' + Array.from({ length: 10 }, () => 'abcdefghijklmnopqrstuvwxyz12345'[Math.floor(Math.random() * 31)]).join('');
 
-let server, browser, page, tlsDir, pushed = [], chainReplies = [], walletRequests = [];
+let server, service, serviceDir, browser, page, tlsDir, pushed = [], chainReplies = [], walletRequests = [];
+const FAUCET = randomNameLater();
 
 before(async () => {
   await rpc.get_info().catch(() => {
@@ -47,8 +50,29 @@ before(async () => {
   execFileSync('openssl', ['req', '-x509', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes',
     '-keyout', TLS_KEY, '-out', TLS_CERT, '-days', '2', '-subj', '/CN=localhost',
     '-addext', 'subjectAltName=DNS:localhost'], { stdio: 'ignore' });
+  // The account service, with Google sign-in replaced by a stub that knows one visitor.
+  const { createService } = await import('../service/server.mjs');
+  const { faucet } = await import('../service/chain.mjs');
+  await push([
+    { account: 'eosio', name: 'newaccount', authorization: [{ actor: 'eosio', permission: 'active' }],
+      data: { creator: 'eosio', name: FAUCET, owner: auth(DEV_PUB), active: auth(DEV_PUB) } },
+    { account: 'eosio.token', name: 'transfer', authorization: [{ actor: 'eosio', permission: 'active' }],
+      data: { from: 'eosio', to: FAUCET, quantity: '500.0000 SYS', memo: 'faucet float' } },
+  ]);
+  serviceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eosinabox-service-'));
+  service = createService({
+    verify: async (token) => {
+      if (token !== 'token-visitor') throw new Error('unknown token');
+      return { email: 'visitor@example.com', name: 'Visitor' };
+    },
+    chain: faucet({ chainUrl: CHAIN_URL, account: FAUCET, privateKey: DEV_PRIV, tokenContract: 'eosio.token', grant: '10.0000 SYS' }),
+    config: { googleClientId: 'client-id.test', rpId: 'localhost', grant: '10.0000 SYS', dataDir: serviceDir, maxPerUser: 3, maxPerDay: 50, adminEmails: [] },
+  });
+  await new Promise((r) => service.listen(0, '127.0.0.1', r));
+  const API_PROXY = `http://127.0.0.1:${service.address().port}`;
+
   server = spawn('node', ['serve.js'], {
-    cwd: path.join(__dirname, '..'), env: { ...process.env, PORT, TLS_KEY, TLS_CERT }, stdio: 'ignore',
+    cwd: path.join(__dirname, '..'), env: { ...process.env, PORT, TLS_KEY, TLS_CERT, API_PROXY }, stdio: 'ignore',
   });
   browser = await puppeteer.launch({
     executablePath: CHROME, headless: true, args: ['--no-sandbox', '--ignore-certificate-errors'],
@@ -83,10 +107,9 @@ before(async () => {
 after(async () => {
   await browser?.close();
   server?.kill();
-  if (tlsDir) fs.rmSync(tlsDir, { recursive: true, force: true });
+  service?.close();
+  for (const dir of [tlsDir, serviceDir]) if (dir) fs.rmSync(dir, { recursive: true, force: true });
 });
-
-const auth = (key) => ({ threshold: 1, keys: [{ key, weight: 1 }], accounts: [], waits: [] });
 
 // Ask the wallet for a new key; returns the PUB_WA_ key it displays.
 async function createKeyInWallet(accountName) {
@@ -221,10 +244,41 @@ test('a shared link cannot inject markup into the wallet', async () => {
   assert.equal(await page.evaluate(() => $('.eosinabox_sharedinfo_esr a').length), 0, 'a javascript: link is not offered');
 });
 
-test('the wallet asked its own origin for nothing but static files', () => {
-  // Keys, signatures and account data never went to the server: there is no server.
+test('a visitor who signs in gets an account from the service and can spend from it', async () => {
+  await page.goto(WALLET_URL, { waitUntil: 'networkidle2' });
+  const account = randomName();
+  // The wizard: choose the chain, name the account, make the passkey.
+  await page.evaluate(() => $('.eosinabox_dropdown_blockchain a.dropdown-item[data-chain="local"]').first().trigger('click'));
+  const pubkey = await createKeyInWallet(account);
+  // Google's button cannot be clicked from a test; this is the callback it invokes on sign-in.
+  await page.evaluate(() => window.createAccountViaService('token-visitor'));
+
+  const onChain = await rpc.get_account(account);
+  const permission = (name) => onChain.permissions.find((p) => p.perm_name === name).required_auth;
+  assert.equal(permission('active').keys[0].key, pubkey);
+  assert.equal(permission('owner').accounts[0].permission.actor, FAUCET);
+  assert.equal(await balance(account), '10.0000 SYS');
+  assert.equal(await page.evaluate(() => localStorage.currentAccount), 'local:' + account, 'the wallet switched to the new account');
+  const log = fs.readFileSync(path.join(serviceDir, 'accounts.jsonl'), 'utf8');
+  assert.match(log, /visitor@example\.com/);
+
+  await transferFromWallet(account, '4.0000 SYS');
+  assert.equal(chainReplies[0]?.status, 202, chainReplies[0]?.body.slice(0, 300));
+  assert.equal(await balance(account), '6.0000 SYS');
+});
+
+test('without a valid sign-in the service creates nothing, and the wallet says why', async () => {
+  const account = randomName();
+  await createKeyInWallet(account);
+  await page.evaluate(() => window.createAccountViaService('forged-token'));
+  assert.match(await page.evaluate(() => $('#eosinabox_serviceStatus').text()), /sign-in was not accepted/);
+  await assert.rejects(rpc.get_account(account));
+});
+
+test('the wallet asked its own origin for static files and the account service, nothing else', () => {
+  // Signatures and transactions never go to the wallet's origin; only the sign-up request does.
   assert.ok(walletRequests.length > 0);
   for (const request of walletRequests) {
-    assert.match(request, /^GET \/($|[\w./-]+\.(html|js|css|png|ico|gif|webmanifest)$)/, request);
+    assert.match(request, /^(GET \/($|[\w./-]+\.(html|js|css|png|ico|gif|webmanifest)$)|GET \/api\/config$|POST \/api\/accounts$)/, request);
   }
 });

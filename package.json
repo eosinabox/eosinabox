@@ -8,7 +8,7 @@
     "chain:build": "docker build -t eosinabox-local-chain local-chain",
     "chain:up": "docker rm -f eosinabox-chain 2>/dev/null; docker run -d --name eosinabox-chain -p 127.0.0.1:28888:8888 eosinabox-local-chain && until docker exec eosinabox-chain test -f /booted; do sleep 1; done && echo chain ready on http://localhost:28888",
     "chain:down": "docker rm -f eosinabox-chain",
-    "test": "npm run -s build && node --test test/*.test.js",
+    "test": "npm run -s build && node --test test/*.test.js test/*.test.mjs",
     "build": "esbuild client/lib/core.mjs --bundle --format=iife --global-name=EosinaboxCore --minify --target=es2020 --outfile=client/src/core.bundle.js"
   },
   "keywords": [],

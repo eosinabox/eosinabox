@@ -254,7 +254,59 @@ $(() => {
       }
     }
   };
+  // On a chain with an account service there is no custodian to name and nothing to share:
+  // the visitor signs in with Google and the service creates the account.
+  const chainHasAccountService = () => !!gChain[gState.chain].accountService;
+  let googleButtonReady = false;
+  const prepareFinalStep = async () => {
+    const viaService = chainHasAccountService();
+    $('#eosinabox_serviceSignup').toggle(viaService);
+    $('#eosinabox_esr, #eosinabox_share').toggle(!viaService);
+    if(!viaService || googleButtonReady){ return; }
+    try{
+      const config = await (await fetch(gChain[gState.chain].accountService + '/config')).json();
+      $('.eosinabox_serviceGrant').text(config.grant);
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.onload = resolve;
+        script.onerror = () => reject(new Error('Google sign-in did not load; an ad blocker usually causes this'));
+        document.head.appendChild(script);
+      });
+      google.accounts.id.initialize({ client_id: config.googleClientId, callback: (response) => createAccountViaService(response.credential) });
+      google.accounts.id.renderButton($('#eosinabox_googleButton')[0], { theme: 'outline', size: 'large', text: 'signin_with' });
+      googleButtonReady = true;
+    }catch(err){
+      $('#eosinabox_serviceStatus').text(err.message);
+    }
+  };
+  const createAccountViaService = async (credential) => {
+    const chain = gState.chain;
+    const accountName = $('#eosinabox_accountName').val().toLowerCase();
+    $('#eosinabox_serviceStatus').text('Creating your account...');
+    try{
+      const response = await fetch(gChain[chain].accountService + '/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ credential, accountName, publicKey: $('#eosinabox_pubkey').text() }),
+      });
+      const result = await response.json();
+      if(!response.ok){ throw new Error(result.error); }
+      localStorage.currentAccount = chain + ':' + result.account;
+      addAccountToLocalStorage(localStorage.currentAccount);
+      localStorage.currentChain = chain;
+      $('#eosinabox_serviceStatus').text('');
+      eosinaboxToast(`Your account ${escapeHtml(result.account)} is ready, with ${escapeHtml(result.grant)} to try a transfer`);
+      wizardTo(0);
+      gotoHome();
+      updateBalance(chain);
+    }catch(err){
+      $('#eosinabox_serviceStatus').text(err.message);
+    }
+  };
+  window.createAccountViaService = createAccountViaService;
   const wizardTo = (stepTo) => {
+    if(stepTo == 5){ prepareFinalStep(); }
     $('.eosinabox_page_createAccount .wizard')
     .fadeOut().promise().done( () => {
       $(`.eosinabox_page_createAccount .wizard${stepTo}`).fadeIn();
@@ -290,7 +342,7 @@ $(() => {
       wizardTo(2);
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard2')){
       // "I agree" == "next"
-      wizardTo(3);
+      wizardTo(chainHasAccountService() ? 4 : 3);
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard3')){
       if(!gState.custodianAccountName){
         $('#eosinabox_custodianAccountName')[0].setCustomValidity('Please choose a real custody account');
@@ -319,7 +371,7 @@ $(() => {
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard3')){
       wizardTo(2);
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard4')){
-      wizardTo(3);
+      wizardTo(chainHasAccountService() ? 2 : 3);
     }else if(e.currentTarget.parentElement.parentElement.classList.contains('wizard5')){
       wizardTo(4);
     }
