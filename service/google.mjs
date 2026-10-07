@@ -31,7 +31,12 @@ export function googleVerifier({ clientId, fetchImpl = fetch, now = () => Date.n
     const parts = String(idToken || '').split('.');
     if (parts.length !== 3) throw new Error('malformed token');
     const [rawHeader, rawPayload, rawSignature] = parts;
-    const header = JSON.parse(b64url(rawHeader).toString('utf8'));
+    let header;
+    try {
+      header = JSON.parse(b64url(rawHeader).toString('utf8'));
+    } catch {
+      throw new Error('malformed token');
+    }
     if (header.alg !== 'RS256') throw new Error(`unexpected alg ${header.alg}`);
     const key = await keyFor(header.kid);
     if (!crypto.verify('RSA-SHA256', Buffer.from(`${rawHeader}.${rawPayload}`), key, b64url(rawSignature))) {
