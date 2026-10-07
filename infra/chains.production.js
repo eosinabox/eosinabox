@@ -3,7 +3,7 @@
 window.EOSINABOX_CHAINS = {
   verarta: {
     name: 'Private chain demo (Verarta)',
-    url: 'https://chain.verarta.com',
+    url: 'https://eosinabox.com/chain', // the chain API, served from the wallet's own origin by nginx
     chainId: '96f99757daf05efb9ed0f8bb675e643e4954a5b6c4c017a25a184ea27f0394cc',
     tokenContract: 'eosio.token', symbol: 'PASSKEY', precision: 4,
     systemContract: false,
