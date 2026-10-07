@@ -2,3 +2,6 @@
 # Edit at https://www.gitignore.io/?templates=node,linux,macos,windows,intellij,webstorm,jetbrains,visualstudio,visualstudiocode
 node_modules/
 .log
+# operator notes and deploy targets: never in the public repo
+*.private.*
+*.local.md
