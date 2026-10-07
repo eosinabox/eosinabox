@@ -149,6 +149,14 @@ test('the public configuration exposes the client id and nothing secret', async 
   assert.deepEqual(body, { googleClientId: 'client-id.test', grant: '25.0000 SYS', maxPerUser: 2 });
 });
 
+test('before sign-in is configured the service runs but creates nothing', async () => {
+  await start({ googleClientId: null });
+  const refused = await post({ credential: 'token-alice', accountName: randomName('alice'), publicKey: passkey() });
+  assert.equal(refused.status, 503);
+  assert.equal((await fetch(base + '/api/wake', { method: 'POST' })).status, 200);
+  await start();
+});
+
 // ---------------------------------------------------------------------------------------
 
 test('Google ID tokens: only a valid token minted for this app is accepted', async () => {

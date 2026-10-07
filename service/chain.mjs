@@ -22,8 +22,8 @@ export function faucet({ chainUrl, chainId, account, privateKey, tokenContract, 
     await fetchImpl(wakeUrl, { method: 'POST' }).catch(() => {});
     for (let i = 0; i < 40; i++) {
       const info = await api.v1.chain.get_info();
-      if (Date.now() - info.head_block_time.toMilliseconds() < 3000) return;
-      await new Promise((r) => setTimeout(r, 250));
+      if (Date.now() - info.head_block_time.toMilliseconds() < 10000) return; // blocks may be seconds apart
+      await new Promise((r) => setTimeout(r, 500));
     }
     throw new Error('the chain did not wake up');
   }

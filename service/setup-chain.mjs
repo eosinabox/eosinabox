@@ -37,7 +37,7 @@ if (process.env.WAKE_URL) {
   await fetch(process.env.WAKE_URL, { method: 'POST' });
   for (let i = 0; i < 60; i++) {
     const info = await api.v1.chain.get_info();
-    if (Date.now() - info.head_block_time.toMilliseconds() < 3000) break;
+    if (Date.now() - info.head_block_time.toMilliseconds() < 10000) break;
     await new Promise((r) => setTimeout(r, 500));
   }
 }

@@ -265,6 +265,7 @@ $(() => {
     if(!viaService || googleButtonReady){ return; }
     try{
       const config = await (await fetch(gChain[gState.chain].accountService + '/config')).json();
+      if(!config.googleClientId){ throw new Error('Sign-in is not set up yet, so the demo cannot create accounts'); }
       $('.eosinabox_serviceGrant').text(config.grant);
       await new Promise((resolve, reject) => {
         const script = document.createElement('script');

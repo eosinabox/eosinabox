@@ -28,7 +28,7 @@ the last word over a demo account.
 
 | Variable | |
 |---|---|
-| `GOOGLE_CLIENT_ID` | OAuth client id (Web application) with the wallet's origin as an authorised JavaScript origin. No client secret is used. |
+| `GOOGLE_CLIENT_ID` | OAuth client id (Web application) with the wallet's origin as an authorised JavaScript origin. No client secret is used. Without it the service runs, wakes the chain, and refuses to create accounts. |
 | `RP_ID` | The wallet's domain. Keys bound to any other domain are refused. |
 | `CHAIN_URL`, `CHAIN_ID` | The chain API, and optionally the chain id to insist on |
 | `FAUCET_ACCOUNT`, `FAUCET_PRIVATE_KEY` | The account the service acts as. Give it only what the demo may spend. |

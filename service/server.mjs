@@ -27,6 +27,7 @@ export function createService({ verify, chain, config, now = () => Date.now() })
   let queue = Promise.resolve(); // one account at a time, so the limits cannot be raced
 
   async function createAccount({ credential, accountName, publicKey }, ip) {
+    if (!config.googleClientId) throw new Refusal(503, 'Sign-in is not set up yet, so the demo cannot create accounts');
     let user;
     try {
       user = await verify(credential);
@@ -122,7 +123,7 @@ export function configFromEnv(env) {
   };
   return {
     port: Number(env.PORT || 8095),
-    googleClientId: need('GOOGLE_CLIENT_ID'),
+    googleClientId: env.GOOGLE_CLIENT_ID || null, // without it the service runs but creates no accounts
     rpId: need('RP_ID'),
     grant: need('GRANT'),
     dataDir: need('DATA_DIR'),
@@ -144,7 +145,9 @@ export function configFromEnv(env) {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const config = configFromEnv(process.env);
   const service = createService({
-    verify: googleVerifier({ clientId: config.googleClientId }),
+    verify: config.googleClientId
+      ? googleVerifier({ clientId: config.googleClientId })
+      : async () => { throw new Error('sign-in is not configured'); },
     chain: faucet(config.chain),
     config,
   });
