@@ -254,45 +254,117 @@ $(() => {
       }
     }
   };
-  // On a chain with an account service there is no custodian to name and nothing to share:
-  // the visitor signs in with Google and the service creates the account.
+  // ---------------------------------------------------------------------------------
+  // The account service (see ./service): on a chain that has one there is no custodian to
+  // name and nothing to share. The visitor signs in, with Google or with a link sent to
+  // their e-mail, and the service creates the account. Signing in is also how the demo's
+  // operators reach the list of sign-ups.
+  const serviceChain = () => Object.keys(gChain).find((id) => gChain[id].accountService);
   const chainHasAccountService = () => !!gChain[gState.chain].accountService;
-  let googleButtonReady = false;
+  const service = async (method, route, body) => {
+    const response = await fetch(gChain[serviceChain()].accountService + route, {
+      method,
+      headers: body ? { 'Content-Type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const json = await response.json().catch(() => ({}));
+    if(!response.ok){ throw new Error(json.error || ('The service answered ' + response.status)); }
+    return json;
+  };
+  let gSession = null, gServiceConfig = null, gGoogleRendered = false, gSessionPoll = null;
+  const signinStatus = (text) => $('#eosinabox_signinStatus').text(text || '');
+  const renderSession = () => {
+    $('#eosinabox_signedOut').toggle(!gSession);
+    $('#eosinabox_signedIn').toggle(!!gSession);
+    $('.eosinabox_sessionEmail').text(gSession ? gSession.email : '');
+    $('.eosinabox_nav_admin').toggle(!!(gSession && gSession.isAdmin));
+    $('#eosinabox_createViaService').toggle(!!gSession);
+    if(gSession){
+      signinStatus('');
+      clearInterval(gSessionPoll);
+      // signed in while the wizard was waiting on its last step: carry on and make the account
+      if(gState.awaitingAccount){ gState.awaitingAccount = false; createAccountViaService(); }
+    }
+  };
+  const refreshSession = async () => {
+    try{ gSession = await service('GET', '/session'); }catch(err){ gSession = null; }
+    renderSession();
+    return gSession;
+  };
+  const signInWithGoogle = async (credential) => {
+    try{
+      gSession = await service('POST', '/session', { credential });
+      renderSession();
+    }catch(err){
+      signinStatus(err.message);
+    }
+  };
+  window.eosinaboxSignInWithGoogle = signInWithGoogle; // what Google's button calls
+  // Put the one sign-in block into whichever page is asking for it, and switch on what the service offers.
+  const showSignin = async (holder) => {
+    $('#eosinabox_signin').appendTo(holder).show();
+    try{
+      if(!gServiceConfig){ gServiceConfig = await service('GET', '/config'); }
+      $('.eosinabox_serviceGrant').text(gServiceConfig.grant);
+      $('#eosinabox_emailForm').toggle(!!gServiceConfig.emailSignIn);
+      if(!gServiceConfig.googleClientId && !gServiceConfig.emailSignIn){
+        signinStatus('Sign-in is not set up yet, so the demo cannot create accounts');
+      }
+      if(gServiceConfig.googleClientId && !gGoogleRendered){
+        gGoogleRendered = true;
+        const script = document.createElement('script');
+        script.src = 'https://accounts.google.com/gsi/client';
+        script.onload = () => {
+          google.accounts.id.initialize({ client_id: gServiceConfig.googleClientId, callback: (response) => signInWithGoogle(response.credential) });
+          google.accounts.id.renderButton($('#eosinabox_googleButton')[0], { theme: 'outline', size: 'large', text: 'signin_with' });
+        };
+        // ad blockers often stop Google's script; the e-mail link still works
+        script.onerror = () => $('#eosinabox_googleButton').text(gServiceConfig.emailSignIn ? '' : 'Google sign-in did not load; an ad blocker usually causes this');
+        document.head.appendChild(script);
+      }
+    }catch(err){
+      signinStatus(err.message);
+    }
+    await refreshSession();
+  };
+  $('#eosinabox_emailForm').on('submit', async (e) => {
+    e.preventDefault();
+    const email = $('#eosinabox_email').val().trim();
+    try{
+      const sent = await service('POST', '/signin/email', { email });
+      signinStatus(`We sent a link to ${email}. Open it within ${sent.minutes} minutes and keep this page open.`);
+      clearInterval(gSessionPoll);
+      const started = Date.now();
+      gSessionPoll = setInterval(async () => {
+        if(Date.now() - started > (sent.minutes + 1) * 60000){ clearInterval(gSessionPoll); signinStatus('The link has expired; ask for a new one.'); return; }
+        try{ gSession = await service('GET', '/session'); renderSession(); }catch(err){ /* not confirmed yet */ }
+      }, 3000);
+    }catch(err){
+      signinStatus(err.message);
+    }
+  });
+  $('#eosinabox_signOut').on('click', async (e) => {
+    e.preventDefault();
+    await service('DELETE', '/session').catch(() => {});
+    gSession = null;
+    renderSession();
+  });
   const prepareFinalStep = async () => {
     const viaService = chainHasAccountService();
     $('#eosinabox_serviceSignup').toggle(viaService);
     $('#eosinabox_esr, #eosinabox_share').toggle(!viaService);
-    if(!viaService || googleButtonReady){ return; }
-    try{
-      const config = await (await fetch(gChain[gState.chain].accountService + '/config')).json();
-      if(!config.googleClientId){ throw new Error('Sign-in is not set up yet, so the demo cannot create accounts'); }
-      $('.eosinabox_serviceGrant').text(config.grant);
-      await new Promise((resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = 'https://accounts.google.com/gsi/client';
-        script.onload = resolve;
-        script.onerror = () => reject(new Error('Google sign-in did not load; an ad blocker usually causes this'));
-        document.head.appendChild(script);
-      });
-      google.accounts.id.initialize({ client_id: config.googleClientId, callback: (response) => createAccountViaService(response.credential) });
-      google.accounts.id.renderButton($('#eosinabox_googleButton')[0], { theme: 'outline', size: 'large', text: 'signin_with' });
-      googleButtonReady = true;
-    }catch(err){
-      $('#eosinabox_serviceStatus').text(err.message);
-    }
+    if(!viaService){ return; }
+    $('#eosinabox_serviceStatus').text('');
+    gState.awaitingAccount = false;
+    await showSignin('#eosinabox_wizardSigninHolder');
+    gState.awaitingAccount = !gSession; // if they still have to sign in, create the account as soon as they have
   };
-  const createAccountViaService = async (credential) => {
+  const createAccountViaService = async () => {
     const chain = gState.chain;
     const accountName = $('#eosinabox_accountName').val().toLowerCase();
     $('#eosinabox_serviceStatus').text('Creating your account...');
     try{
-      const response = await fetch(gChain[chain].accountService + '/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ credential, accountName, publicKey: $('#eosinabox_pubkey').text() }),
-      });
-      const result = await response.json();
-      if(!response.ok){ throw new Error(result.error); }
+      const result = await service('POST', '/accounts', { accountName, publicKey: $('#eosinabox_pubkey').text() });
       localStorage.currentAccount = chain + ':' + result.account;
       addAccountToLocalStorage(localStorage.currentAccount);
       localStorage.currentChain = chain;
@@ -305,7 +377,38 @@ $(() => {
       $('#eosinabox_serviceStatus').text(err.message);
     }
   };
-  window.createAccountViaService = createAccountViaService;
+  $('#eosinabox_createViaService').on('click', (e) => { e.preventDefault(); createAccountViaService(); });
+  // Operators: who has signed up.
+  const showAdmin = async () => {
+    const body = $('#eosinabox_adminRows').empty();
+    $('#eosinabox_adminStatus').text('Loading...');
+    try{
+      const { accounts } = await service('GET', '/admin/accounts');
+      for(const a of accounts.slice().reverse()){
+        $('<tr>').append([a.time.replace('T', ' ').slice(0, 16), a.email, a.name || '', a.account, a.method || 'google', a.ip].map((v) => $('<td>').text(v))).appendTo(body);
+      }
+      $('#eosinabox_adminStatus').text(`${accounts.length} accounts created by ${new Set(accounts.map((a) => a.email)).size} people`);
+    }catch(err){
+      $('#eosinabox_adminStatus').text(err.message);
+    }
+  };
+  // An e-mailed link lands here. Opening it does nothing; pressing the button confirms.
+  const showConfirm = (token) => {
+    $('.eosinabox_page').hide();
+    $('.eosinabox_page_confirm').show();
+    $('#eosinabox_confirmSignin').off('click').on('click', async () => {
+      try{
+        const result = await service('POST', '/signin/confirm', { token });
+        $('#eosinabox_confirmSignin').hide();
+        $('#eosinabox_confirmStatus').text(result.signedIn
+          ? `You are signed in as ${result.email}. If you started in another tab, go back to it; it carries on by itself.`
+          : `Confirmed for ${result.email}. Go back to the browser where you asked for the link; it carries on by itself.`);
+        await refreshSession();
+      }catch(err){
+        $('#eosinabox_confirmStatus').text(err.message);
+      }
+    });
+  };
   const wizardTo = (stepTo) => {
     if(stepTo == 5){ prepareFinalStep(); }
     $('.eosinabox_page_createAccount .wizard')
@@ -818,6 +921,8 @@ $(() => {
     $('.eosinabox_page').hide();
     const href = e.target.href.split('#')[1];
     $(`.eosinabox_page_${href}`).show();
+    if(href == 'signin'){ gState.awaitingAccount = false; showSignin('#eosinabox_signinHolder'); }
+    if(href == 'admin'){ showAdmin(); }
   });
   $('.eosinabox_dropdown_blockchain .dropdown-menu').html(
     Object.keys(gChain).map((id) => `<a class="dropdown-item" data-chain="${id}" href="#">${escapeHtml(gChain[id].name)}</a>`).join('')
@@ -853,7 +958,15 @@ $(() => {
   //   window.open('https://eosinabox.com/notPhone', '_self').focus();
   // }
   // if url has #sharedInfo in it, get the parameters and navigate to the right page.
-  if(window.location.href.split('#').length>1 && window.location.href.split('#')[1].substr(0,10) == 'sharedInfo'){
+  if(serviceChain()){
+    $('.eosinabox_nav_signin').show();
+    refreshSession();
+  }
+  if(serviceChain() && window.location.hash.startsWith('#confirm=')){
+    const token = window.location.hash.slice('#confirm='.length);
+    history.replaceState('', '', window.location.pathname); // the token should not linger in the address bar
+    showConfirm(token);
+  }else if(window.location.href.split('#').length>1 && window.location.href.split('#')[1].substr(0,10) == 'sharedInfo'){
     const params = window.location.href.split('#')[1].split('?')[1].split('&');
     var o = {};
     localStorage.sharedInfo = '';

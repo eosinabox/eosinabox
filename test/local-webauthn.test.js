@@ -37,6 +37,7 @@ function randomNameLater() { return 'faucet' + Math.random().toString(36).replac
 // Antelope account names: 12 characters from a-z and 1-5.
 const randomName = () => 'wa' + Array.from({ length: 10 }, () => 'abcdefghijklmnopqrstuvwxyz12345'[Math.floor(Math.random() * 31)]).join('');
 
+const outbox = [];
 let server, service, serviceDir, browser, page, tlsDir, pushed = [], chainReplies = [], walletRequests = [];
 const FAUCET = randomNameLater();
 
@@ -61,12 +62,15 @@ before(async () => {
   ]);
   serviceDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eosinabox-service-'));
   service = createService({
-    verify: async (token) => {
-      if (token !== 'token-visitor') throw new Error('unknown token');
-      return { email: 'visitor@example.com', name: 'Visitor' };
+    verifyGoogle: async (token) => {
+      const people = { 'token-visitor': { email: 'visitor@example.com', name: 'Visitor' }, 'token-operator': { email: 'operator@example.com', name: 'Operator' } };
+      if (!people[token]) throw new Error('unknown token');
+      return people[token];
     },
+    mailer: { send: async (message) => { outbox.push(message); } },
     chain: faucet({ chainUrl: CHAIN_URL, account: FAUCET, privateKey: DEV_PRIV, tokenContract: 'eosio.token', grant: '10.0000 SYS' }),
-    config: { googleClientId: 'client-id.test', rpId: 'localhost', grant: '10.0000 SYS', dataDir: serviceDir, maxPerUser: 3, maxPerDay: 50, adminEmails: [] },
+    config: { origin: WALLET_URL, sessionSecret: 'e2e-secret', googleClientId: null, rpId: 'localhost', grant: '10.0000 SYS', dataDir: serviceDir,
+      maxPerUser: 3, maxPerDay: 50, maxLinksPerEmailPerHour: 3, maxLinksPerIpPerHour: 10, maxLinksPerDay: 200, adminEmails: ['operator@example.com'] },
   });
   await new Promise((r) => service.listen(0, '127.0.0.1', r));
   const API_PROXY = `http://127.0.0.1:${service.address().port}`;
@@ -244,41 +248,128 @@ test('a shared link cannot inject markup into the wallet', async () => {
   assert.equal(await page.evaluate(() => $('.eosinabox_sharedinfo_esr a').length), 0, 'a javascript: link is not offered');
 });
 
-test('a visitor who signs in gets an account from the service and can spend from it', async () => {
+// Walk the account-creation wizard as a visitor would, up to its last step: choose the demo
+// chain, name the account, agree, make the passkey. Returns the passkey's public key.
+async function walkWizard(account) {
   await page.goto(WALLET_URL, { waitUntil: 'networkidle2' });
-  const account = randomName();
-  // The wizard: choose the chain, name the account, make the passkey.
-  await page.evaluate(() => $('.eosinabox_dropdown_blockchain a.dropdown-item[data-chain="local"]').first().trigger('click'));
-  const pubkey = await createKeyInWallet(account);
-  // Google's button cannot be clicked from a test; this is the callback it invokes on sign-in.
-  await page.evaluate(() => window.createAccountViaService('token-visitor'));
+  const next = (step) => page.evaluate((n) => $(`.eosinabox_page_createAccount .wizard${n} .next`).trigger('click'), step);
+  const onStep = (step) => page.waitForFunction((n) => $(`.eosinabox_page_createAccount .wizard${n}`).first().is(':visible'), { timeout: 5000 }, step);
+  await page.evaluate(() => {
+    $('nav a.nav-link[href="#createAccount"]').trigger('click');
+    $('.eosinabox_dropdown_blockchain a.dropdown-item[data-chain="local"]').first().trigger('click');
+  });
+  await next(0); await onStep(1);
+  await page.evaluate((name) => $('#eosinabox_accountName').val(name).trigger('input'), account);
+  await page.waitForFunction(() => $('#eosinabox_countAccountLen').text() === 'Account is available', { timeout: 10000 });
+  await next(1); await onStep(2);
+  await next(2); await onStep(4); // no custodian step on a chain with an account service
+  await page.evaluate(() => { $('#eosinabox_pubkey').text(''); $('#eosinbox_createKeys').trigger('click'); });
+  await page.waitForFunction(() => $('#eosinabox_pubkey').text().startsWith('PUB_WA_'), { timeout: 15000 });
+  await next(4); await onStep(5);
+  await page.waitForFunction(() => $('#eosinabox_wizardSigninHolder #eosinabox_signin').is(':visible'), { timeout: 5000 });
+  return page.evaluate(() => $('#eosinabox_pubkey').text());
+}
+const accountOnChain = async (account) => {
+  for (let i = 0; i < 60; i++) {
+    const found = await rpc.get_account(account).catch(() => null);
+    if (found) return found;
+    await sleep(250);
+  }
+  throw new Error(`account ${account} was not created`);
+};
+const signOut = () => page.evaluate(() => fetch('/api/session', { method: 'DELETE' }));
 
-  const onChain = await rpc.get_account(account);
+test('a visitor who signs in with Google gets an account and can spend from it', async () => {
+  const account = randomName();
+  const pubkey = await walkWizard(account);
+  // Google's button cannot be clicked from a test; this is the callback it invokes on sign-in.
+  await page.evaluate(() => window.eosinaboxSignInWithGoogle('token-visitor'));
+
+  const onChain = await accountOnChain(account);
   const permission = (name) => onChain.permissions.find((p) => p.perm_name === name).required_auth;
   assert.equal(permission('active').keys[0].key, pubkey);
   assert.equal(permission('owner').accounts[0].permission.actor, FAUCET);
+  await page.waitForFunction((a) => localStorage.currentAccount === 'local:' + a, { timeout: 5000 }, account);
   assert.equal(await balance(account), '10.0000 SYS');
-  assert.equal(await page.evaluate(() => localStorage.currentAccount), 'local:' + account, 'the wallet switched to the new account');
-  const log = fs.readFileSync(path.join(serviceDir, 'accounts.jsonl'), 'utf8');
-  assert.match(log, /visitor@example\.com/);
+  assert.match(fs.readFileSync(path.join(serviceDir, 'accounts.jsonl'), 'utf8'), /visitor@example\.com/);
 
   await transferFromWallet(account, '4.0000 SYS');
   assert.equal(chainReplies[0]?.status, 202, chainReplies[0]?.body.slice(0, 300));
   assert.equal(await balance(account), '6.0000 SYS');
 });
 
+test('someone already signed in creates another account with one press', async () => {
+  const account = randomName();
+  await walkWizard(account);
+  assert.equal(await page.evaluate(() => $('.eosinabox_sessionEmail').first().text()), 'visitor@example.com');
+  await sleep(500);
+  await assert.rejects(rpc.get_account(account), 'nothing is created until they ask');
+  await page.evaluate(() => $('#eosinabox_createViaService').trigger('click'));
+  await accountOnChain(account);
+  await signOut();
+});
+
+test('a visitor without Google signs in by e-mail link and gets an account', async () => {
+  const account = randomName();
+  await walkWizard(account);
+  await page.evaluate(() => { $('#eosinabox_email').val('mailer@example.com'); $('#eosinabox_emailForm').trigger('submit'); });
+  await page.waitForFunction(() => /We sent a link to mailer@example.com/.test($('#eosinabox_signinStatus').text()), { timeout: 5000 });
+  assert.equal(outbox.at(-1).to, 'mailer@example.com');
+  const link = outbox.at(-1).text.match(/https:\/\/\S+#confirm=[\w-]+/)[0];
+  await assert.rejects(rpc.get_account(account), 'no account before the link is confirmed');
+
+  // The link opens in a new tab of the same browser; opening it alone confirms nothing.
+  const tab = await browser.newPage();
+  await tab.goto(link, { waitUntil: 'networkidle2' });
+  await tab.waitForFunction(() => $('.eosinabox_page_confirm').is(':visible'));
+  assert.equal(await tab.evaluate(() => location.hash), '', 'the token is taken out of the address bar');
+  await sleep(3500);
+  await assert.rejects(rpc.get_account(account), 'opening the link is not confirming');
+  await tab.evaluate(() => $('#eosinabox_confirmSignin').trigger('click'));
+  await tab.waitForFunction(() => /signed in as mailer@example.com/.test($('#eosinabox_confirmStatus').text()), { timeout: 5000 });
+  await tab.close();
+
+  // The first tab notices by itself and finishes the job.
+  await accountOnChain(account);
+  assert.match(fs.readFileSync(path.join(serviceDir, 'accounts.jsonl'), 'utf8'), /"email":"mailer@example\.com","name":null,"method":"email"/);
+  await signOut();
+});
+
 test('without a valid sign-in the service creates nothing, and the wallet says why', async () => {
   const account = randomName();
-  await createKeyInWallet(account);
-  await page.evaluate(() => window.createAccountViaService('forged-token'));
-  assert.match(await page.evaluate(() => $('#eosinabox_serviceStatus').text()), /sign-in was not accepted/);
+  await walkWizard(account);
+  await page.evaluate(() => window.eosinaboxSignInWithGoogle('forged-token'));
+  assert.match(await page.evaluate(() => $('#eosinabox_signinStatus').text()), /sign-in was not accepted/);
+  await sleep(500);
   await assert.rejects(rpc.get_account(account));
+});
+
+test('an operator who signs in finds the sign-ups in the menu; a visitor does not', async () => {
+  await page.goto(WALLET_URL, { waitUntil: 'networkidle2' });
+  const menuShown = () => page.evaluate(() => $('.eosinabox_nav_admin').css('display') !== 'none');
+  await page.evaluate(() => $('nav a.nav-link[href="#signin"]').trigger('click'));
+  await page.evaluate(() => window.eosinaboxSignInWithGoogle('token-visitor'));
+  assert.equal(await menuShown(), false);
+  await signOut();
+
+  await page.evaluate(() => window.eosinaboxSignInWithGoogle('token-operator'));
+  assert.equal(await menuShown(), true);
+  await page.evaluate(() => $('nav a.nav-link[href="#admin"]').trigger('click'));
+  await page.waitForFunction(() => $('#eosinabox_adminRows tr').length >= 3, { timeout: 5000 });
+  const text = await page.evaluate(() => $('.eosinabox_page_admin').text());
+  assert.match(text, /visitor@example\.com/);
+  assert.match(text, /mailer@example\.com/);
+  assert.match(text, /3 accounts created by 2 people/);
+
+  await page.evaluate(() => $('nav a.nav-link[href="#signin"]').trigger('click'));
+  await page.evaluate(() => $('#eosinabox_signOut').trigger('click'));
+  await page.waitForFunction(() => $('.eosinabox_nav_admin').css('display') === 'none', { timeout: 5000 });
 });
 
 test('the wallet asked its own origin for static files and the account service, nothing else', () => {
   // Signatures and transactions never go to the wallet's origin; only the sign-up request does.
   assert.ok(walletRequests.length > 0);
   for (const request of walletRequests) {
-    assert.match(request, /^(GET \/($|[\w./-]+\.(html|js|css|png|ico|gif|webmanifest)$)|GET \/api\/config$|POST \/api\/accounts$)/, request);
+    assert.match(request, /^(GET \/($|[\w./-]+\.(html|js|css|png|ico|gif|webmanifest)$)|(GET|POST|DELETE) \/api\/(config|session|accounts|signin\/email|signin\/confirm|admin\/accounts)$)/, request);
   }
 });

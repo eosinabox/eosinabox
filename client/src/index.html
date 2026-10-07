@@ -24,9 +24,9 @@
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.4/umd/popper.min.js"></script><!-- Bootstrap tooltips -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.5.0/js/bootstrap.min.js"></script><!-- Bootstrap core JavaScript -->
     <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.19.1/js/mdb.min.js"></script><!-- MDB core JavaScript -->
-    <script src="chains.js?17"></script>
-    <script src="core.bundle.js?17"></script>
-    <script src="client.js?17"></script>
+    <script src="chains.js?18"></script>
+    <script src="core.bundle.js?18"></script>
+    <script src="client.js?18"></script>
     <style>
       html,body {
         height: 100%;
@@ -112,6 +112,8 @@
           <li class="nav-item"><a class="nav-link" href="#createAccount"    >Create Account</a></li>
           <li class="nav-item"><a class="nav-link" href="#restoreAccount"   >Restore Access</a></li>
           <li class="nav-item"><a class="nav-link" href="#help">Help</a></li>
+          <li class="nav-item eosinabox_nav_signin" style="display:none"><a class="nav-link" href="#signin">Sign in</a></li>
+          <li class="nav-item eosinabox_nav_admin" style="display:none"><a class="nav-link" href="#admin">Demo sign-ups</a></li>
           <li class="nav-item collapse navbar-collapse"><a class="nav-link" href="#sharedInfo">Shared Info</a></li>
         </ul>
       </div>
@@ -289,14 +291,15 @@
           <div id="eosinabox_serviceSignup" style="display:none">
             <h3 class="eosinabox_create_account_header">Create your demo account</h3>
             <p>
-              Sign in with Google and your account is created on the chain with the key you just made,
+              Sign in and your account is created on the chain with the key you just made,
               and <span class="eosinabox_serviceGrant">some tokens</span> to try a transfer.
             </p>
             <p>
-              Google is only asked who you are, so the demo knows who is trying it and can limit
+              Signing in only tells the demo who you are, so it knows who is trying it and can limit
               how many accounts one person makes. Your key and your fingerprint never leave this phone.
             </p>
-            <div id="eosinabox_googleButton"></div>
+            <div id="eosinabox_wizardSigninHolder"></div>
+            <button id="eosinabox_createViaService" class="btn btn-primary btn-sm mt-3" type="button" style="display:none">Create my account</button>
             <div id="eosinabox_serviceStatus" class="text-danger mt-3"></div>
           </div>
         </div>
@@ -436,6 +439,45 @@
           <!-- <div class="text-break eosinabox_RestoreAccountTransaction"></div> -->
           <button class="btn btn-primary btn-sm eosinabox_buttonRestoreAccountTransaction" type="submit">Replace keys for friend</button>
         </div>
+      </div>
+    </div>
+
+    <div class="container eosinabox_page eosinabox_page_signin">
+      <h3 class="mt-3">Sign in</h3>
+      <p>For the demo chain: signing in lets you create a demo account. It is not needed to use an account you already have.</p>
+      <div id="eosinabox_signinHolder">
+        <div id="eosinabox_signin">
+          <div id="eosinabox_signedOut">
+            <div id="eosinabox_googleButton"></div>
+            <form id="eosinabox_emailForm" class="mt-3" style="display:none">
+              <label for="eosinabox_email">Or get a single-use sign-in link by e-mail</label>
+              <input id="eosinabox_email" type="email" class="form-control mb-2" placeholder="you@example.com" autocomplete="email" required>
+              <button class="btn btn-outline-primary btn-sm" type="submit">E-mail me a link</button>
+            </form>
+          </div>
+          <div id="eosinabox_signedIn" style="display:none">
+            Signed in as <strong class="eosinabox_sessionEmail"></strong> · <a href="#" id="eosinabox_signOut">Sign out</a>
+          </div>
+          <div id="eosinabox_signinStatus" class="text-info mt-3"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="container eosinabox_page eosinabox_page_confirm">
+      <h3 class="mt-3">Confirm sign-in</h3>
+      <p>You opened a sign-in link for the EOS in a Box demo. Press the button only if you asked for it.</p>
+      <button id="eosinabox_confirmSignin" class="btn btn-primary" type="button">Yes, sign me in</button>
+      <div id="eosinabox_confirmStatus" class="mt-3"></div>
+    </div>
+
+    <div class="container-fluid eosinabox_page eosinabox_page_admin">
+      <h3 class="mt-3">Demo sign-ups</h3>
+      <p id="eosinabox_adminStatus"></p>
+      <div class="table-responsive">
+        <table class="table table-sm">
+          <thead><tr><th>When (UTC)</th><th>E-mail</th><th>Name</th><th>Account</th><th>Signed in by</th><th>IP</th></tr></thead>
+          <tbody id="eosinabox_adminRows"></tbody>
+        </table>
       </div>
     </div>
 
